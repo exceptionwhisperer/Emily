@@ -81,3 +81,5 @@ The first backend now lives in `backend/`. It exposes:
 - `POST /api/coach` to send a compact health summary to the OpenAI Responses API.
 
 The next implementation step is wiring the Android app's **Create Coach Summary** button to call this backend instead of only creating a local prompt.
+
+The Android app now has a dedicated **ChatGPT coach response** card. That card should display the backend's plain-language response plus the small next-step suggestions that Emily Coach returns.

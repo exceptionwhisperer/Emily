@@ -7,6 +7,7 @@
 - Run the Emily Coach backend and test `GET /health`.
 - Test `POST /api/coach` with a sample health summary.
 - Wire the Android app's Create Coach Summary button to call the backend.
+- Fill the ChatGPT coach response card with the backend answer and suggestions.
 - Test Health Connect permissions on the live Samsung phone with only some categories granted.
 - Confirm Import Today fills steps, sleep, heart rate, resting heart rate, workouts, active calories, and weight when those permissions are granted.
 - Improve the Health Connect card message so it lists which selected categories are granted and which still need permission.
@@ -17,6 +18,7 @@
 - Decide what data Emily Coach should send to ChatGPT.
 - Keep the private backend as the only place that stores the OpenAI API key.
 - Add a real coach response screen after the backend exists.
+- Define the exact suggestion format Emily should display in the ChatGPT coach response card.
 - Keep the coach language non-medical: summarize, explain patterns, ask questions, and suggest small wellness steps.
 
 ## App Polish

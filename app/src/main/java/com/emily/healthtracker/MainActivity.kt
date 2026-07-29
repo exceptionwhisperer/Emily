@@ -196,6 +196,8 @@ private fun HealthTrackerScreen() {
     var notes by remember { mutableStateOf("") }
     var trendSummary by remember { mutableStateOf("7-day trends will appear after importing Health Connect data.") }
     var coachInsight by remember { mutableStateOf("Import or enter today's numbers, then ask Emily Coach for a plain-language summary.") }
+    var chatGptCoachResponse by remember { mutableStateOf("") }
+    var chatGptSuggestions by remember { mutableStateOf(listOf<String>()) }
     var includeSteps by remember { mutableStateOf(true) }
     var includeSleep by remember { mutableStateOf(true) }
     var includeHeartRate by remember { mutableStateOf(true) }
@@ -530,7 +532,19 @@ private fun HealthTrackerScreen() {
                         selectedHealthData = selectedHealthData,
                         recentEntries = entries.take(5)
                     )
+                    chatGptCoachResponse = "Coach summary is ready for ChatGPT. Backend connection is the next step."
+                    chatGptSuggestions = listOf(
+                        "Use this card for ChatGPT's health-number explanation.",
+                        "Show two small next steps here after the backend responds."
+                    )
                 }
+            )
+        }
+
+        item {
+            ChatGptCoachResponseCard(
+                response = chatGptCoachResponse,
+                suggestions = chatGptSuggestions
             )
         }
 
@@ -778,6 +792,69 @@ private fun EmilyCoachCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Create Coach Summary")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatGptCoachResponseCard(
+    response: String,
+    suggestions: List<String>
+) {
+    Card(
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = SoftMint),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "ChatGPT coach response",
+                    color = Charcoal,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = if (response.isBlank()) "waiting" else "ready",
+                    color = Teal,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Text(
+                text = response.ifBlank {
+                    "After the backend is connected, ChatGPT's explanation of your health number will appear here."
+                },
+                color = Charcoal.copy(alpha = 0.78f)
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "Suggestions",
+                    color = Charcoal,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (suggestions.isEmpty()) {
+                    Text(
+                        text = "No suggestions yet.",
+                        color = Charcoal.copy(alpha = 0.68f)
+                    )
+                } else {
+                    suggestions.forEach { suggestion ->
+                        Text(
+                            text = "- $suggestion",
+                            color = Charcoal.copy(alpha = 0.78f)
+                        )
+                    }
+                }
             }
         }
     }
