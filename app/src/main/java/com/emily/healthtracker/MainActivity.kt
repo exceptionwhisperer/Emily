@@ -289,36 +289,61 @@ private fun HealthTrackerScreen() {
             Header(wellnessScore = wellnessScore)
         }
 
-        item {
-            MetricCard(title = "Sleep", value = "${sleepHours.ifBlank { "0" }} hours") {
-                OutlinedTextField(
-                    value = sleepHours,
-                    onValueChange = {},
-                    label = { Text("Sleep from Health Connect") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    readOnly = true,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+        if (includeSleep) {
+            item {
+                MetricCard(title = "Sleep", value = "${sleepHours.ifBlank { "0" }} hours") {
+                    ImportedDataRow(
+                        label = "Sleep from Health Connect",
+                        value = sleepHours.ifBlank { "No data" },
+                        unit = "hours"
+                    )
+                }
             }
         }
 
         item {
             DataSelectionCard(
                 includeSteps = includeSteps,
-                onIncludeStepsChange = { includeSteps = it },
+                onIncludeStepsChange = {
+                    includeSteps = it
+                    if (!it) steps = ""
+                },
                 includeSleep = includeSleep,
-                onIncludeSleepChange = { includeSleep = it },
+                onIncludeSleepChange = {
+                    includeSleep = it
+                    if (!it) sleepHours = ""
+                },
                 includeHeartRate = includeHeartRate,
-                onIncludeHeartRateChange = { includeHeartRate = it },
+                onIncludeHeartRateChange = {
+                    includeHeartRate = it
+                    if (!it) {
+                        heartRate = ""
+                        restingHeartRate = ""
+                    }
+                },
                 includeHydration = includeHydration,
-                onIncludeHydrationChange = { includeHydration = it },
+                onIncludeHydrationChange = {
+                    includeHydration = it
+                    if (!it) waterCups = ""
+                },
                 includeActiveCalories = includeActiveCalories,
-                onIncludeActiveCaloriesChange = { includeActiveCalories = it },
+                onIncludeActiveCaloriesChange = {
+                    includeActiveCalories = it
+                    if (!it) activeCalories = ""
+                },
                 includeWorkouts = includeWorkouts,
-                onIncludeWorkoutsChange = { includeWorkouts = it },
+                onIncludeWorkoutsChange = {
+                    includeWorkouts = it
+                    if (!it) {
+                        exerciseMinutes = ""
+                        workoutTypes = "Workout data not selected"
+                    }
+                },
                 includeWeight = includeWeight,
-                onIncludeWeightChange = { includeWeight = it },
+                onIncludeWeightChange = {
+                    includeWeight = it
+                    if (!it) weightPounds = ""
+                },
                 isExpanded = isDataSelectionExpanded,
                 onToggleExpanded = { isDataSelectionExpanded = !isDataSelectionExpanded }
             )
@@ -393,70 +418,84 @@ private fun HealthTrackerScreen() {
             )
         }
 
-        item {
-            MetricCard(title = "Hydration", value = hydrationSummary(waterCups)) {
-                ImportedDataRow(
-                    label = "Hydration from Health Connect",
-                    value = waterCups.ifBlank { "No data" },
-                    unit = "cups"
-                )
-            }
-        }
-
-        item {
-            MetricCard(title = "Movement", value = "${steps.ifBlank { "0" }} steps") {
-                ImportedDataRow(label = "Steps from Health Connect", value = steps.ifBlank { "No data" })
-            }
-        }
-
-        item {
-            MetricCard(
-                title = "Heart",
-                value = heartSummary(heartRate, restingHeartRate)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (includeHydration) {
+            item {
+                MetricCard(title = "Hydration", value = hydrationSummary(waterCups)) {
                     ImportedDataRow(
-                        label = "Average heart rate",
-                        value = heartRate.ifBlank { "No data" },
-                        unit = "bpm"
-                    )
-                    ImportedDataRow(
-                        label = "Resting heart rate today",
-                        value = restingHeartRate.ifBlank { "No data" },
-                        unit = "bpm"
+                        label = "Hydration from Health Connect",
+                        value = waterCups.ifBlank { "No data" },
+                        unit = "cups"
                     )
                 }
             }
         }
 
-        item {
-            MetricCard(
-                title = "Workout",
-                value = "${exerciseMinutes.ifBlank { "0" }} min | ${activeCalories.ifBlank { "0" }} cal"
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ImportedDataRow(
-                        label = "Exercise minutes",
-                        value = exerciseMinutes.ifBlank { "No data" },
-                        unit = "min"
-                    )
-                    ImportedDataRow(
-                        label = "Active calories",
-                        value = activeCalories.ifBlank { "No data" },
-                        unit = "cal"
-                    )
-                    Text(text = "Types: $workoutTypes", color = Charcoal.copy(alpha = 0.72f))
+        if (includeSteps) {
+            item {
+                MetricCard(title = "Movement", value = "${steps.ifBlank { "0" }} steps") {
+                    ImportedDataRow(label = "Steps from Health Connect", value = steps.ifBlank { "No data" })
                 }
             }
         }
 
-        item {
-            MetricCard(title = "Weight", value = if (weightPounds.isBlank()) "No data" else "$weightPounds lb") {
-                ImportedDataRow(
-                    label = "Latest weight from Health Connect",
-                    value = weightPounds.ifBlank { "No data" },
-                    unit = "lb"
-                )
+        if (includeHeartRate) {
+            item {
+                MetricCard(
+                    title = "Heart",
+                    value = heartSummary(heartRate, restingHeartRate)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ImportedDataRow(
+                            label = "Average heart rate",
+                            value = heartRate.ifBlank { "No data" },
+                            unit = "bpm"
+                        )
+                        ImportedDataRow(
+                            label = "Resting heart rate today",
+                            value = restingHeartRate.ifBlank { "No data" },
+                            unit = "bpm"
+                        )
+                    }
+                }
+            }
+        }
+
+        if (includeWorkouts || includeActiveCalories) {
+            item {
+                MetricCard(
+                    title = "Workout",
+                    value = workoutSummary(includeWorkouts, exerciseMinutes, includeActiveCalories, activeCalories)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (includeWorkouts) {
+                            ImportedDataRow(
+                                label = "Exercise minutes",
+                                value = exerciseMinutes.ifBlank { "No data" },
+                                unit = "min"
+                            )
+                            Text(text = "Types: $workoutTypes", color = Charcoal.copy(alpha = 0.72f))
+                        }
+                        if (includeActiveCalories) {
+                            ImportedDataRow(
+                                label = "Active calories",
+                                value = activeCalories.ifBlank { "No data" },
+                                unit = "cal"
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (includeWeight) {
+            item {
+                MetricCard(title = "Weight", value = if (weightPounds.isBlank()) "No data" else "$weightPounds lb") {
+                    ImportedDataRow(
+                        label = "Latest weight from Health Connect",
+                        value = weightPounds.ifBlank { "No data" },
+                        unit = "lb"
+                    )
+                }
             }
         }
 
@@ -1317,6 +1356,19 @@ private fun heartSummary(
 
 private fun hydrationSummary(waterCups: String): String {
     return if (waterCups.isBlank()) "No data" else "$waterCups cups"
+}
+
+private fun workoutSummary(
+    includeWorkouts: Boolean,
+    exerciseMinutes: String,
+    includeActiveCalories: Boolean,
+    activeCalories: String
+): String {
+    val parts = buildList {
+        if (includeWorkouts) add("${exerciseMinutes.ifBlank { "0" }} min")
+        if (includeActiveCalories) add("${activeCalories.ifBlank { "No data" }} cal")
+    }
+    return parts.joinToString(" | ").ifBlank { "No data" }
 }
 
 private data class HealthEntry(
