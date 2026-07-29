@@ -4,6 +4,8 @@ Emily is a simple native Android health tracker starter app built with Kotlin an
 
 Current version: `1.0.0 (1)`
 
+See `CHANGELOG.md` for saved version notes and `TODO.md` for the current build list.
+
 ## How Emily Works
 
 Emily has two kinds of data:
@@ -64,6 +66,8 @@ After this project is pushed to GitHub:
 6. Press **Run**.
 
 The app source is safe to store in GitHub. Do not commit personal health exports, API keys, local keystores, or private backend secrets.
+
+If this local checkout has no GitHub remote yet, create an empty GitHub repository first, then add its repository URL as the `origin` remote before pushing.
 
 ## Health Connect
 
