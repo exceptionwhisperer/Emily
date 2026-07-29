@@ -8,7 +8,7 @@ Current version: `1.0.0 (1)`
 
 Emily has two kinds of data:
 
-- **Imported Health Connect data:** sleep, hydration, steps, average heart rate, resting heart rate, active calories, workout minutes, workout types, and weight.
+- **Imported Health Connect data:** sleep, steps, average heart rate, resting heart rate, active calories, workout minutes, workout types, and weight.
 - **Manual check-in data:** mood, symptoms, medications, and notes.
 
 Use the app in this order:
@@ -20,19 +20,18 @@ Use the app in this order:
 5. Tap **Create Coach Summary** to generate Emily's coach-style summary.
 6. Tap **Save Today's Check-In** when the day's snapshot looks right.
 
-You do **not** need to tap **Connect** every time. Once Health Connect permissions are granted, **Import Today** is the normal refresh button.
+You do **not** need to tap **Connect** every time. Once Health Connect permissions are granted, **Import Today** is the normal refresh button. If you grant only some selected permissions, Emily imports only the granted data types instead of blocking the whole import.
 
 ## What It Tracks
 
 - Daily wellness score
 - Sleep
-- Hydration
 - Steps
 - Mood
 - Symptoms
 - Medication notes
 - Personal health notes
-- Health Connect imports for steps, sleep, hydration, average heart rate, resting heart rate, active calories, exercise minutes, workout types, and weight
+- Health Connect imports for steps, sleep, average heart rate, resting heart rate, active calories, exercise minutes, workout types, and weight
 - A data-selection card to choose exactly which Health Connect data Emily imports and uses for coaching
 - 7-day trend summaries for coaching context, including resting heart rate change
 - Emily Coach summaries that prepare the user's data for ChatGPT-style guidance
@@ -68,7 +67,7 @@ The app source is safe to store in GitHub. Do not commit personal health exports
 
 ## Health Connect
 
-Emily can request permission to read steps, sleep, hydration, average heart rate, resting heart rate, active calories, exercise sessions, workout types, and weight from Android Health Connect.
+Emily can request permission to read steps, sleep, average heart rate, resting heart rate, active calories, exercise sessions, workout types, and weight from Android Health Connect.
 
 For testing:
 

@@ -6,7 +6,6 @@ Emily should use the user's own Health Connect data to create plain-language hea
 
 - Steps
 - Sleep duration
-- Hydration
 - Heart rate
 - Resting heart rate
 - Active calories
@@ -14,7 +13,6 @@ Emily should use the user's own Health Connect data to create plain-language hea
 - Workout types
 - Weight
 - Mood
-- Hydration
 - Symptoms
 - Medication notes
 - Saved check-in trends

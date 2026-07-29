@@ -60,7 +60,6 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
-import androidx.health.connect.client.records.HydrationRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
@@ -184,7 +183,6 @@ private fun EmilyPermissionsRationaleScreen() {
 @Composable
 private fun HealthTrackerScreen() {
     var sleepHours by remember { mutableStateOf("7.5") }
-    var waterCups by remember { mutableStateOf("") }
     var steps by remember { mutableStateOf("4200") }
     var heartRate by remember { mutableStateOf("") }
     var restingHeartRate by remember { mutableStateOf("") }
@@ -201,7 +199,6 @@ private fun HealthTrackerScreen() {
     var includeSteps by remember { mutableStateOf(true) }
     var includeSleep by remember { mutableStateOf(true) }
     var includeHeartRate by remember { mutableStateOf(true) }
-    var includeHydration by remember { mutableStateOf(true) }
     var includeActiveCalories by remember { mutableStateOf(true) }
     var includeWorkouts by remember { mutableStateOf(true) }
     var includeWeight by remember { mutableStateOf(true) }
@@ -224,7 +221,6 @@ private fun HealthTrackerScreen() {
         includeSteps = includeSteps,
         includeSleep = includeSleep,
         includeHeartRate = includeHeartRate,
-        includeHydration = includeHydration,
         includeActiveCalories = includeActiveCalories,
         includeWorkouts = includeWorkouts,
         includeWeight = includeWeight
@@ -232,10 +228,12 @@ private fun HealthTrackerScreen() {
     val healthConnectPermissions = selectedHealthData.permissions()
     val hasSelectedData = selectedHealthData.hasAnyHealthConnectImport()
     var requestedPermissions by remember { mutableStateOf(emptySet<String>()) }
+    var grantedHealthPermissions by remember { mutableStateOf(emptySet<String>()) }
     var hasHealthConnectPermission by remember { mutableStateOf(false) }
     fun updatePermissionState(grantedPermissions: Set<String>) {
+        grantedHealthPermissions = grantedPermissions
         hasHealthConnectPermission = healthConnectPermissions.isNotEmpty() &&
-            grantedPermissions.containsAll(healthConnectPermissions)
+            healthConnectPermissions.any { permission -> permission in grantedPermissions }
     }
     var healthConnectMessage by remember {
         mutableStateOf(
@@ -250,12 +248,14 @@ private fun HealthTrackerScreen() {
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = PermissionController.createRequestPermissionResultContract()
     ) { grantedPermissions ->
-        hasHealthConnectPermission = requestedPermissions.isNotEmpty() &&
-            grantedPermissions.containsAll(requestedPermissions)
-        healthConnectMessage = if (hasHealthConnectPermission) {
+        updatePermissionState(grantedPermissions)
+        val grantedSelectedCount = requestedPermissions.count { permission -> permission in grantedPermissions }
+        healthConnectMessage = if (grantedSelectedCount == requestedPermissions.size && requestedPermissions.isNotEmpty()) {
             "Health Connect is connected for the selected data."
+        } else if (grantedSelectedCount > 0) {
+            "Health Connect is connected for $grantedSelectedCount selected permission(s). Import Today will use the granted items."
         } else {
-            "Health Connect permission was not granted for every selected item."
+            "No selected Health Connect permissions were granted yet. Tap Connect or Manage to choose data."
         }
     }
 
@@ -272,7 +272,6 @@ private fun HealthTrackerScreen() {
 
     val wellnessScore = calculateWellnessScore(
         sleepHours = sleepHours.toFloatOrNull() ?: 0f,
-        waterCups = waterCups.toFloatOrNull() ?: 0f,
         steps = steps.toIntOrNull() ?: 0,
         mood = mood
     )
@@ -320,11 +319,6 @@ private fun HealthTrackerScreen() {
                         heartRate = ""
                         restingHeartRate = ""
                     }
-                },
-                includeHydration = includeHydration,
-                onIncludeHydrationChange = {
-                    includeHydration = it
-                    if (!it) waterCups = ""
                 },
                 includeActiveCalories = includeActiveCalories,
                 onIncludeActiveCaloriesChange = {
@@ -376,39 +370,38 @@ private fun HealthTrackerScreen() {
                     val client = healthConnectClient ?: return@HealthConnectCard
                     coroutineScope.launch {
                         try {
-                            val importedData = readHealthConnectData(client, selectedHealthData)
-                            if (selectedHealthData.includeSteps) {
+                            val importableData = selectedHealthData.withGrantedPermissions(grantedHealthPermissions)
+                            if (!importableData.hasAnyHealthConnectImport()) {
+                                healthConnectMessage = "No selected Health Connect permissions are granted yet. Tap Connect or Manage first."
+                                return@launch
+                            }
+                            val importedData = readHealthConnectData(client, importableData)
+                            if (importableData.includeSteps) {
                                 steps = importedData.today.steps?.toString().orEmpty()
                             }
-                            if (selectedHealthData.includeSleep) {
+                            if (importableData.includeSleep) {
                                 sleepHours = importedData.today.sleepMinutes?.let { formatHours(it) }.orEmpty()
                             }
-                            if (selectedHealthData.includeHydration) {
-                                waterCups = importedData.today.hydrationCups
-                                    ?.takeIf { it > 0 }
-                                    ?.toString()
-                                    .orEmpty()
-                            }
-                            if (selectedHealthData.includeHeartRate) {
+                            if (importableData.includeHeartRate) {
                                 heartRate = importedData.today.averageHeartRate?.toString().orEmpty()
                                 restingHeartRate = importedData.today.restingHeartRate?.toString().orEmpty()
                             }
-                            if (selectedHealthData.includeActiveCalories) {
+                            if (importableData.includeActiveCalories) {
                                 activeCalories = importedData.today.activeCalories
                                     ?.roundToInt()
                                     ?.takeIf { it > 0 }
                                     ?.toString()
                                     .orEmpty()
                             }
-                            if (selectedHealthData.includeWorkouts) {
+                            if (importableData.includeWorkouts) {
                                 exerciseMinutes = importedData.today.exerciseMinutes?.toString().orEmpty()
                                 workoutTypes = importedData.today.workoutTypesSummary
                             }
-                            if (selectedHealthData.includeWeight) {
+                            if (importableData.includeWeight) {
                                 weightPounds = importedData.latestWeightPounds?.let { formatOneDecimal(it) }.orEmpty()
                             }
                             trendSummary = importedData.trendSummary
-                            healthConnectMessage = "Imported selected Health Connect data and updated 7-day trends."
+                            healthConnectMessage = "Imported granted Health Connect data and updated 7-day trends."
                         } catch (exception: Exception) {
                             healthConnectMessage =
                                 "Emily could not import Health Connect data yet: ${exception.message ?: "unknown issue"}"
@@ -416,18 +409,6 @@ private fun HealthTrackerScreen() {
                     }
                 }
             )
-        }
-
-        if (includeHydration) {
-            item {
-                MetricCard(title = "Hydration", value = hydrationSummary(waterCups)) {
-                    ImportedDataRow(
-                        label = "Hydration from Health Connect",
-                        value = waterCups.ifBlank { "No data" },
-                        unit = "cups"
-                    )
-                }
-            }
         }
 
         if (includeSteps) {
@@ -532,7 +513,6 @@ private fun HealthTrackerScreen() {
                     coachInsight = buildCoachInsight(
                         wellnessScore = wellnessScore,
                         sleepHours = sleepHours,
-                            waterCups = waterCups.toFloatOrNull()?.roundToInt() ?: 0,
                         steps = steps,
                         mood = mood.roundToInt(),
                         symptoms = symptoms,
@@ -561,7 +541,7 @@ private fun HealthTrackerScreen() {
                             date = LocalDate.now().format(DateTimeFormatter.ofPattern("MMM d, yyyy")),
                             score = wellnessScore,
                             sleepHours = sleepHours,
-                            waterCups = waterCups.toFloatOrNull()?.roundToInt() ?: 0,
+                            waterCups = 0,
                             steps = steps,
                             mood = mood.roundToInt(),
                             symptoms = symptoms.ifBlank { "None logged" },
@@ -631,8 +611,6 @@ private fun DataSelectionCard(
     onIncludeSleepChange: (Boolean) -> Unit,
     includeHeartRate: Boolean,
     onIncludeHeartRateChange: (Boolean) -> Unit,
-    includeHydration: Boolean,
-    onIncludeHydrationChange: (Boolean) -> Unit,
     includeActiveCalories: Boolean,
     onIncludeActiveCaloriesChange: (Boolean) -> Unit,
     includeWorkouts: Boolean,
@@ -646,7 +624,6 @@ private fun DataSelectionCard(
         includeSteps,
         includeSleep,
         includeHeartRate,
-        includeHydration,
         includeActiveCalories,
         includeWorkouts,
         includeWeight
@@ -675,7 +652,7 @@ private fun DataSelectionCard(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "$selectedCount of 7 selected",
+                        text = "$selectedCount of 6 selected",
                         color = Charcoal.copy(alpha = 0.72f)
                     )
                 }
@@ -691,7 +668,6 @@ private fun DataSelectionCard(
                 DataCheckboxRow("Steps", includeSteps, onIncludeStepsChange)
                 DataCheckboxRow("Sleep", includeSleep, onIncludeSleepChange)
                 DataCheckboxRow("Heart rate", includeHeartRate, onIncludeHeartRateChange)
-                DataCheckboxRow("Hydration", includeHydration, onIncludeHydrationChange)
                 DataCheckboxRow("Active calories", includeActiveCalories, onIncludeActiveCaloriesChange)
                 DataCheckboxRow("Workout types and minutes", includeWorkouts, onIncludeWorkoutsChange)
                 DataCheckboxRow("Weight", includeWeight, onIncludeWeightChange)
@@ -833,7 +809,7 @@ private fun HealthConnectCard(
             )
             Text(text = statusText, color = Charcoal.copy(alpha = 0.72f))
             Text(
-                text = "Import Today fills the Health Connect boxes below. Mood, hydration, and notes stay manual.",
+                text = "Import Today fills the Health Connect boxes below. Mood, symptoms, medications, and notes stay manual.",
                 color = Charcoal.copy(alpha = 0.72f),
                 fontSize = 13.sp
             )
@@ -1062,7 +1038,7 @@ private fun EntryCard(entry: HealthEntry) {
                 Text(entry.date, color = Charcoal, fontWeight = FontWeight.Bold)
                 Text("Score ${entry.score}", color = Coral, fontWeight = FontWeight.Bold)
             }
-            Text("Sleep: ${entry.sleepHours}h  |  Water: ${entry.waterCups} cups  |  Steps: ${entry.steps}")
+            Text("Sleep: ${entry.sleepHours}h  |  Steps: ${entry.steps}")
             Text("Mood: ${entry.mood}/10")
             Text("Symptoms: ${entry.symptoms}")
             Text("Medications: ${entry.medications}")
@@ -1073,21 +1049,18 @@ private fun EntryCard(entry: HealthEntry) {
 
 private fun calculateWellnessScore(
     sleepHours: Float,
-    waterCups: Float,
     steps: Int,
     mood: Float
 ): Int {
-    val sleepScore = ((sleepHours.coerceIn(0f, 8f) / 8f) * 25f)
-    val waterScore = ((waterCups.coerceIn(0f, 8f) / 8f) * 25f)
-    val stepScore = ((steps.coerceIn(0, 8000) / 8000f) * 25f)
-    val moodScore = ((mood.coerceIn(1f, 10f) / 10f) * 25f)
-    return (sleepScore + waterScore + stepScore + moodScore).roundToInt()
+    val sleepScore = ((sleepHours.coerceIn(0f, 8f) / 8f) * 35f)
+    val stepScore = ((steps.coerceIn(0, 8000) / 8000f) * 35f)
+    val moodScore = ((mood.coerceIn(1f, 10f) / 10f) * 30f)
+    return (sleepScore + stepScore + moodScore).roundToInt()
 }
 
 private fun buildCoachInsight(
     wellnessScore: Int,
     sleepHours: String,
-    waterCups: Int,
     steps: String,
     mood: Int,
     symptoms: String,
@@ -1108,7 +1081,6 @@ private fun buildCoachInsight(
     val focusArea = when {
         sleep < 6f -> "sleep recovery"
         stepCount < 3500 -> "gentle movement"
-        waterCups < 5 -> "hydration"
         mood <= 4 -> "mood support"
         else -> "consistency"
     }
@@ -1132,7 +1104,7 @@ private fun buildCoachInsight(
         $trendSummary
         
         User-selected data types: $selectedDataSummary.
-        Data used: $sleepHours hours sleep, $waterCups cups water, $steps steps, mood $mood/10.
+        Data used: $sleepHours hours sleep, $steps steps, mood $mood/10.
         Heart/activity: ${heartRate.ifBlank { "no heart rate data" }} bpm avg, ${restingHeartRate.ifBlank { "no resting heart rate data" }} bpm resting, ${exerciseMinutes.ifBlank { "0" }} exercise minutes, ${activeCalories.ifBlank { "0" }} active calories.
         Workout types: $workoutTypes
         Weight: ${weightPounds.ifBlank { "no weight data" }} lb.
@@ -1181,7 +1153,6 @@ private suspend fun readHealthMetrics(
 ): ImportedHealthMetrics {
     val requestedMetrics = buildSet {
         if (selectedHealthData.includeSteps) add(StepsRecord.COUNT_TOTAL)
-        if (selectedHealthData.includeHydration) add(HydrationRecord.VOLUME_TOTAL)
         if (selectedHealthData.includeActiveCalories) add(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
         if (selectedHealthData.includeWorkouts) add(ExerciseSessionRecord.EXERCISE_DURATION_TOTAL)
         if (selectedHealthData.includeHeartRate) {
@@ -1229,11 +1200,6 @@ private suspend fun readHealthMetrics(
     return ImportedHealthMetrics(
         steps = aggregateResponse?.get(StepsRecord.COUNT_TOTAL),
         sleepMinutes = sleepMinutes,
-        hydrationCups = aggregateResponse
-            ?.get(HydrationRecord.VOLUME_TOTAL)
-            ?.inFluidOuncesUs
-            ?.div(8.0)
-            ?.roundToInt(),
         activeCalories = aggregateResponse?.get(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)?.inKilocalories,
         exerciseMinutes = aggregateResponse?.get(ExerciseSessionRecord.EXERCISE_DURATION_TOTAL)?.toMinutes(),
         averageHeartRate = aggregateResponse?.get(HeartRateRecord.BPM_AVG),
@@ -1266,7 +1232,6 @@ private fun buildTrendSummary(
 ): String {
     val dailyAverageSteps = week.steps?.div(7)
     val dailyAverageSleep = week.sleepMinutes?.div(7)
-    val dailyAverageHydration = week.hydrationCups?.div(7)
     val dailyAverageCalories = week.activeCalories?.div(7.0)
     val dailyAverageExercise = week.exerciseMinutes?.div(7)
     val heartRateText = week.averageHeartRate?.let { "$it bpm average heart rate" } ?: "no heart rate average"
@@ -1277,12 +1242,11 @@ private fun buildTrendSummary(
         ?: "no active calorie average"
     val stepsText = dailyAverageSteps?.let { "$it steps/day" } ?: "steps not selected"
     val sleepText = dailyAverageSleep?.let { "${formatHours(it)} sleep hours/day" } ?: "sleep not selected"
-    val hydrationText = dailyAverageHydration?.let { "$it hydration cups/day" } ?: "hydration not selected"
     val exerciseText = dailyAverageExercise?.let { "$it exercise min/day" } ?: "workouts not selected"
     val todayStepsText = today.steps?.let { "$it steps" } ?: "steps not selected"
     val todaySleepText = today.sleepMinutes?.let { "${formatHours(it)} sleep hours" } ?: "sleep not selected"
 
-    return "7-day trend: $stepsText, $sleepText, $hydrationText, " +
+    return "7-day trend: $stepsText, $sleepText, " +
         "$exerciseText, $calorieText, $heartRateText, $restingHeartRateText. " +
         "$restingHeartRateChangeText " +
         "Workout types this week: ${week.workoutTypesSummary}. " +
@@ -1354,10 +1318,6 @@ private fun heartSummary(
     return "$averageText | $restingText"
 }
 
-private fun hydrationSummary(waterCups: String): String {
-    return if (waterCups.isBlank()) "No data" else "$waterCups cups"
-}
-
 private fun workoutSummary(
     includeWorkouts: Boolean,
     exerciseMinutes: String,
@@ -1392,7 +1352,6 @@ private data class ImportedHealthDataSet(
 private data class ImportedHealthMetrics(
     val steps: Long?,
     val sleepMinutes: Long?,
-    val hydrationCups: Int?,
     val activeCalories: Double?,
     val exerciseMinutes: Long?,
     val averageHeartRate: Long?,
@@ -1404,7 +1363,6 @@ private data class SelectedHealthData(
     val includeSteps: Boolean,
     val includeSleep: Boolean,
     val includeHeartRate: Boolean,
-    val includeHydration: Boolean,
     val includeActiveCalories: Boolean,
     val includeWorkouts: Boolean,
     val includeWeight: Boolean
@@ -1413,7 +1371,6 @@ private data class SelectedHealthData(
         return includeSteps ||
             includeSleep ||
             includeHeartRate ||
-            includeHydration ||
             includeActiveCalories ||
             includeWorkouts ||
             includeWeight
@@ -1423,7 +1380,6 @@ private data class SelectedHealthData(
         return buildSet {
             if (includeSteps) add(HealthPermission.getReadPermission(StepsRecord::class))
             if (includeSleep) add(HealthPermission.getReadPermission(SleepSessionRecord::class))
-            if (includeHydration) add(HealthPermission.getReadPermission(HydrationRecord::class))
             if (includeHeartRate) {
                 add(HealthPermission.getReadPermission(HeartRateRecord::class))
                 add(HealthPermission.getReadPermission(RestingHeartRateRecord::class))
@@ -1434,12 +1390,32 @@ private data class SelectedHealthData(
         }
     }
 
+    fun withGrantedPermissions(grantedPermissions: Set<String>): SelectedHealthData {
+        val heartRatePermissions = setOf(
+            HealthPermission.getReadPermission(HeartRateRecord::class),
+            HealthPermission.getReadPermission(RestingHeartRateRecord::class)
+        )
+        return copy(
+            includeSteps = includeSteps &&
+                HealthPermission.getReadPermission(StepsRecord::class) in grantedPermissions,
+            includeSleep = includeSleep &&
+                HealthPermission.getReadPermission(SleepSessionRecord::class) in grantedPermissions,
+            includeHeartRate = includeHeartRate &&
+                heartRatePermissions.all { permission -> permission in grantedPermissions },
+            includeActiveCalories = includeActiveCalories &&
+                HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class) in grantedPermissions,
+            includeWorkouts = includeWorkouts &&
+                HealthPermission.getReadPermission(ExerciseSessionRecord::class) in grantedPermissions,
+            includeWeight = includeWeight &&
+                HealthPermission.getReadPermission(WeightRecord::class) in grantedPermissions
+        )
+    }
+
     fun summaryLabel(): String {
         val labels = buildList {
             if (includeSteps) add("steps")
             if (includeSleep) add("sleep")
             if (includeHeartRate) add("heart rate")
-            if (includeHydration) add("hydration")
             if (includeActiveCalories) add("active calories")
             if (includeWorkouts) add("workouts")
             if (includeWeight) add("weight")
@@ -1457,7 +1433,7 @@ private fun loadHealthEntries(preferences: SharedPreferences): List<HealthEntry>
             date = item.getString("date"),
             score = item.getInt("score"),
             sleepHours = item.getString("sleepHours"),
-            waterCups = item.getInt("waterCups"),
+            waterCups = item.optInt("waterCups", 0),
             steps = item.getString("steps"),
             mood = item.getInt("mood"),
             symptoms = item.getString("symptoms"),
