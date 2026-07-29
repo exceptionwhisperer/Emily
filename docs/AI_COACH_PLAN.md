@@ -73,4 +73,11 @@ User health data:
 
 ## First Implementation Step
 
-The current Android app includes Health Connect imports, a 7-day trends card, and an Emily Coach card that creates a local ChatGPT-ready summary from the user's current check-in data. The next implementation step is adding the private backend endpoint and calling OpenAI from there.
+The current Android app includes Health Connect imports, a 7-day trends card, and an Emily Coach card that creates a local ChatGPT-ready summary from the user's current check-in data.
+
+The first backend now lives in `backend/`. It exposes:
+
+- `GET /health` to confirm the backend is running.
+- `POST /api/coach` to send a compact health summary to the OpenAI Responses API.
+
+The next implementation step is wiring the Android app's **Create Coach Summary** button to call this backend instead of only creating a local prompt.

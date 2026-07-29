@@ -87,4 +87,4 @@ Health Connect only gives Emily data after the user grants permission.
 
 Emily now includes a starter coach card. It summarizes the current health number, imported data, symptoms, medication notes, and recent check-ins.
 
-The safest next step for real ChatGPT responses is a small private backend. The Android app should not store an OpenAI API key directly. See `docs/AI_COACH_PLAN.md`.
+The first private backend is in `backend/`. The Android app should not store an OpenAI API key directly. See `docs/AI_COACH_PLAN.md` and `backend/README.md`.
