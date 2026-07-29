@@ -370,7 +370,9 @@ private fun HealthTrackerScreen() {
                     val client = healthConnectClient ?: return@HealthConnectCard
                     coroutineScope.launch {
                         try {
-                            val importableData = selectedHealthData.withGrantedPermissions(grantedHealthPermissions)
+                            val currentGrantedPermissions = client.permissionController.getGrantedPermissions()
+                            updatePermissionState(currentGrantedPermissions)
+                            val importableData = selectedHealthData.withGrantedPermissions(currentGrantedPermissions)
                             if (!importableData.hasAnyHealthConnectImport()) {
                                 healthConnectMessage = "No selected Health Connect permissions are granted yet. Tap Connect or Manage first."
                                 return@launch
@@ -847,7 +849,7 @@ private fun HealthConnectCard(
             }
             Button(
                 onClick = onImportToday,
-                enabled = isAvailable && hasPermission && hasSelectedData,
+                enabled = isAvailable && hasSelectedData,
                 colors = ButtonDefaults.buttonColors(containerColor = Teal),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
