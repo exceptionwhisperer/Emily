@@ -599,7 +599,7 @@ private fun HealthTrackerScreen() {
                             unit = "ms"
                         )
                         ImportedDataRow(
-                            label = "HRV recovery change",
+                            label = "HRV change",
                             value = hrvChange.ifBlank { "No data" }
                         )
                         ImportedDataRow(
@@ -985,7 +985,7 @@ private fun ImportedDataRow(
 ) {
     val isMissing = value == "No data"
     val displayValue = if (unit.isBlank() || isMissing) value else "$value $unit"
-    val needsStackedLayout = displayValue.length > 16
+    val needsStackedLayout = displayValue.length > 16 || label.length + displayValue.length > 28
     val rowModifier = modifier
         .fillMaxWidth()
         .background(SoftMint.copy(alpha = 0.5f), RoundedCornerShape(8.dp))

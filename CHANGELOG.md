@@ -22,6 +22,7 @@ Saved on July 29, 2026.
 - Reworked the Review tab to show recovery first and hide empty Workout/Weight cards until data exists.
 - Tightened Review row spacing so `No data` values are smaller, calmer, and better aligned.
 - Fixed long Review values so rows stack instead of crushing labels on narrow phone screens.
+- Shortened the HRV recovery row label to prevent vertical wrapping on phone screens.
 
 ### Added
 
