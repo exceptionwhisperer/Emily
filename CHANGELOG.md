@@ -26,6 +26,7 @@ Saved on July 29, 2026.
 - Removed duplicate Sleep and Movement detail rows so those cards show the imported value once.
 - Moved long card header summaries under the title so Recovery review spacing stays readable.
 - Left-aligned stacked Review values so HRV change reads like a clear statement.
+- Right-aligned stacked numeric Review values while keeping long text Review values left-aligned.
 
 ### Added
 
