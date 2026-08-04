@@ -23,6 +23,7 @@ Saved on July 29, 2026.
 - Tightened Review row spacing so `No data` values are smaller, calmer, and better aligned.
 - Fixed long Review values so rows stack instead of crushing labels on narrow phone screens.
 - Shortened the HRV recovery row label to prevent vertical wrapping on phone screens.
+- Removed duplicate Sleep and Movement detail rows so those cards show the imported value once.
 
 ### Added
 

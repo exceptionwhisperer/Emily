@@ -643,11 +643,7 @@ private fun HealthTrackerScreen() {
         if (selectedSection == AppSection.Data && includeSleep) {
             item {
                 MetricCard(title = "Sleep", value = "${sleepHours.ifBlank { "0" }} hours") {
-                    ImportedDataRow(
-                        label = "Sleep from Health Connect",
-                        value = sleepHours.ifBlank { "No data" },
-                        unit = "hours"
-                    )
+                    SourceNote("From Health Connect")
                 }
             }
         }
@@ -655,7 +651,7 @@ private fun HealthTrackerScreen() {
         if (selectedSection == AppSection.Data && includeSteps) {
             item {
                 MetricCard(title = "Movement", value = "${steps.ifBlank { "0" }} steps") {
-                    ImportedDataRow(label = "Steps from Health Connect", value = steps.ifBlank { "No data" })
+                    SourceNote("From Health Connect")
                 }
             }
         }
@@ -974,6 +970,16 @@ private fun DataCheckboxRow(
         )
         Text(text = label, color = Charcoal)
     }
+}
+
+@Composable
+private fun SourceNote(text: String) {
+    Text(
+        text = text,
+        color = Charcoal.copy(alpha = 0.62f),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold
+    )
 }
 
 @Composable
