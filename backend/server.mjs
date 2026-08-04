@@ -111,7 +111,8 @@ const server = http.createServer(async (request, response) => {
       sendJson(response, 200, {
         coachText: extractOutputText(openAiJson),
         model: OPENAI_MODEL,
-        responseId: openAiJson.id || null
+        responseId: openAiJson.id || null,
+        usage: normalizeUsage(openAiJson.usage)
       });
       return;
     }
@@ -202,4 +203,20 @@ function extractOutputText(openAiJson) {
   }
 
   return textParts.join("\n").trim();
+}
+
+function normalizeUsage(usage) {
+  if (!usage || typeof usage !== "object") {
+    return {
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null
+    };
+  }
+
+  return {
+    inputTokens: usage.input_tokens ?? null,
+    outputTokens: usage.output_tokens ?? null,
+    totalTokens: usage.total_tokens ?? null
+  };
 }

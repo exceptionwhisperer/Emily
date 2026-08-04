@@ -78,12 +78,16 @@ import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import java.net.HttpURLConnection
+import java.net.URL
 import java.time.Duration
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import org.json.JSONArray
 import org.json.JSONObject
@@ -219,6 +223,8 @@ private fun HealthTrackerScreen() {
     var restingHeartRateBaseline by remember { mutableStateOf("") }
     var hrvBaseline by remember { mutableStateOf("") }
     var profileHealthNotes by remember { mutableStateOf("") }
+    var backendBaseUrl by remember { mutableStateOf("http://10.0.2.2:8787") }
+    var backendStatus by remember { mutableStateOf("Not checked from this phone yet.") }
     var trendSummary by remember { mutableStateOf("7-day trends will appear after importing Health Connect data.") }
     var coachInsight by remember { mutableStateOf("Import or enter today's numbers, then ask Emily Coach for a plain-language summary.") }
     var chatGptCoachResponse by remember { mutableStateOf("") }
@@ -226,6 +232,7 @@ private fun HealthTrackerScreen() {
     var coachQuestion by remember { mutableStateOf("") }
     var lastCoachQuestion by remember { mutableStateOf("") }
     var fakeCoachMode by remember { mutableStateOf(true) }
+    var isCoachLoading by remember { mutableStateOf(false) }
     var coachRequestCount by remember { mutableStateOf(0) }
     var coachInputTokens by remember { mutableStateOf(0) }
     var coachOutputTokens by remember { mutableStateOf(0) }
@@ -312,6 +319,7 @@ private fun HealthTrackerScreen() {
             hrvBaseline = profile.hrvBaseline
             profileHealthNotes = profile.healthNotes
         }
+        backendBaseUrl = preferences.getString("backendBaseUrl", "http://10.0.2.2:8787") ?: "http://10.0.2.2:8787"
     }
 
     LaunchedEffect(healthConnectClient, healthConnectPermissions) {
@@ -403,12 +411,43 @@ private fun HealthTrackerScreen() {
             coachInputTokens += estimateTokens(payload)
             coachOutputTokens += estimateTokens(fakeResponse.response + fakeResponse.suggestions.joinToString())
         } else {
-            chatGptCoachResponse = "Backend mode is selected, but the Android-to-backend connection is not wired yet. Switch Fake data test mode back on for free testing."
-            chatGptSuggestions = listOf(
-                "Start the backend after adding your API key.",
-                "Wire this button to POST /api/coach.",
-                "Save token usage from the backend response."
-            )
+            isCoachLoading = true
+            chatGptCoachResponse = "Asking Emily Coach backend..."
+            chatGptSuggestions = listOf("Keep Emily open while the backend responds.")
+            coroutineScope.launch {
+                val result = runCatching {
+                    requestCoachFromBackend(
+                        backendBaseUrl = backendBaseUrl,
+                        question = cleanQuestion,
+                        healthSummary = payload
+                    )
+                }
+
+                result
+                    .onSuccess { coachResult ->
+                        backendStatus = "Connected to ${coachResult.model.ifBlank { "backend" }}."
+                        chatGptCoachResponse = coachResult.coachText.ifBlank {
+                            "The backend answered, but no coach text came back."
+                        }
+                        chatGptSuggestions = listOf(
+                            "Review this response against your Health Connect numbers.",
+                            "Check Debug for the backend URL and token counters.",
+                            "Turn Fake data test mode back on when you want free testing."
+                        )
+                        coachInputTokens += coachResult.inputTokens ?: estimateTokens(payload)
+                        coachOutputTokens += coachResult.outputTokens ?: estimateTokens(coachResult.coachText)
+                    }
+                    .onFailure { error ->
+                        backendStatus = "Backend call failed: ${error.message ?: "unknown error"}"
+                        chatGptCoachResponse = "Emily could not reach the Coach backend. Check that the backend is running on Windows and that the backend URL in Profile matches your PC's local IP address."
+                        chatGptSuggestions = listOf(
+                            "Keep Fake data test mode checked while troubleshooting.",
+                            "On your phone, use your Windows IP address, not localhost.",
+                            "Confirm Windows firewall allows port 8787."
+                        )
+                    }
+                isCoachLoading = false
+            }
         }
     }
     fun fillFakeHealthData() {
@@ -781,6 +820,7 @@ private fun HealthTrackerScreen() {
                 onFakeCoachModeChange = { fakeCoachMode = it },
                 question = coachQuestion,
                 onQuestionChange = { coachQuestion = it },
+                isCoachLoading = isCoachLoading,
                 lastQuestion = lastCoachQuestion,
                 suggestedQuestions = suggestedCoachQuestions,
                 onAskQuestion = { selectedQuestion ->
@@ -826,6 +866,8 @@ private fun HealthTrackerScreen() {
                     onHrvBaselineChange = { hrvBaseline = it },
                     healthNotes = profileHealthNotes,
                     onHealthNotesChange = { profileHealthNotes = it },
+                    backendBaseUrl = backendBaseUrl,
+                    onBackendBaseUrlChange = { backendBaseUrl = it },
                     onSave = {
                         saveEmilyProfile(
                             preferences = preferences,
@@ -837,7 +879,9 @@ private fun HealthTrackerScreen() {
                                 healthNotes = profileHealthNotes
                             )
                         )
+                        preferences.edit().putString("backendBaseUrl", backendBaseUrl.trim()).apply()
                         coachInsight = "Profile saved. Emily Coach will include these local profile notes when reviewing your data."
+                        backendStatus = "Saved backend URL."
                     }
                 )
             }
@@ -853,6 +897,8 @@ private fun HealthTrackerScreen() {
                     coachRequestCount = coachRequestCount,
                     coachInputTokens = coachInputTokens,
                     coachOutputTokens = coachOutputTokens,
+                    backendBaseUrl = backendBaseUrl,
+                    backendStatus = backendStatus,
                     currentCoachPayload = currentCoachPayload()
                 )
             }
@@ -1267,6 +1313,7 @@ private fun CoachConversationCard(
     onFakeCoachModeChange: (Boolean) -> Unit,
     question: String,
     onQuestionChange: (String) -> Unit,
+    isCoachLoading: Boolean,
     lastQuestion: String,
     suggestedQuestions: List<String>,
     onAskQuestion: (String) -> Unit
@@ -1331,14 +1378,14 @@ private fun CoachConversationCard(
             )
             Button(
                 onClick = { onAskQuestion(question) },
-                enabled = question.isNotBlank(),
+                enabled = question.isNotBlank() && !isCoachLoading,
                 colors = ButtonDefaults.buttonColors(containerColor = Teal),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
-                Text("Ask ChatGPT Coach")
+                Text(if (isCoachLoading) "Asking Emily..." else "Ask ChatGPT Coach")
             }
             if (lastQuestion.isNotBlank()) {
                 Text(
@@ -1476,6 +1523,8 @@ private fun EmilyProfileCard(
     onHrvBaselineChange: (String) -> Unit,
     healthNotes: String,
     onHealthNotesChange: (String) -> Unit,
+    backendBaseUrl: String,
+    onBackendBaseUrlChange: (String) -> Unit,
     onSave: () -> Unit
 ) {
     Card(
@@ -1538,6 +1587,18 @@ private fun EmilyProfileCard(
                 minLines = 4,
                 modifier = Modifier.fillMaxWidth()
             )
+            OutlinedTextField(
+                value = backendBaseUrl,
+                onValueChange = onBackendBaseUrlChange,
+                label = { Text("Emily Coach backend URL") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = "Use http://10.0.2.2:8787 on the emulator. On your Samsung phone, use your Windows computer's local IP address, for example http://192.168.1.25:8787.",
+                color = Charcoal.copy(alpha = 0.72f),
+                fontSize = 13.sp
+            )
             Text(
                 text = "Emily does not diagnose or replace your clinician. Use this profile to help Emily explain trends in your data.",
                 color = Coral,
@@ -1567,6 +1628,8 @@ private fun EmilyDebugCard(
     coachRequestCount: Int,
     coachInputTokens: Int,
     coachOutputTokens: Int,
+    backendBaseUrl: String,
+    backendStatus: String,
     currentCoachPayload: String
 ) {
     Card(
@@ -1585,7 +1648,8 @@ private fun EmilyDebugCard(
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
-            ImportedDataRow(label = "OpenAI backend", value = "Not wired yet")
+            ImportedDataRow(label = "OpenAI backend", value = backendStatus)
+            ImportedDataRow(label = "Backend URL", value = backendBaseUrl.ifBlank { "Not set" })
             ImportedDataRow(label = "Coach mode", value = if (fakeCoachMode) "Fake, no cost" else "Backend")
             ImportedDataRow(label = "Health Connect permission", value = if (hasHealthConnectPermission) "Granted" else "Needs check")
             ImportedDataRow(label = "Selected data", value = selectedHealthData.summaryLabel())
@@ -2123,6 +2187,73 @@ private fun estimateCoachCostDollars(inputTokens: Int, outputTokens: Int): Doubl
     return inputCost + outputCost
 }
 
+private suspend fun requestCoachFromBackend(
+    backendBaseUrl: String,
+    question: String,
+    healthSummary: String
+): CoachBackendResult = withContext(Dispatchers.IO) {
+    val cleanBaseUrl = backendBaseUrl.trim().trimEnd('/')
+    require(cleanBaseUrl.startsWith("http://") || cleanBaseUrl.startsWith("https://")) {
+        "Backend URL must start with http:// or https://"
+    }
+
+    val requestBody = JSONObject()
+        .put(
+            "healthSummary",
+            """
+                Question from Troy:
+                $question
+
+                Emily health data:
+                $healthSummary
+            """.trimIndent()
+        )
+        .toString()
+
+    val connection = (URL("$cleanBaseUrl/api/coach").openConnection() as HttpURLConnection).apply {
+        requestMethod = "POST"
+        connectTimeout = 15000
+        readTimeout = 45000
+        doOutput = true
+        setRequestProperty("Content-Type", "application/json")
+        setRequestProperty("Accept", "application/json")
+    }
+
+    try {
+        connection.outputStream.use { output ->
+            output.write(requestBody.toByteArray(Charsets.UTF_8))
+        }
+
+        val statusCode = connection.responseCode
+        val responseText = if (statusCode in 200..299) {
+            connection.inputStream.bufferedReader().use { it.readText() }
+        } else {
+            connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        }
+
+        if (statusCode !in 200..299) {
+            val detail = runCatching {
+                JSONObject(responseText).optString("detail").ifBlank {
+                    JSONObject(responseText).optString("error")
+                }
+            }.getOrDefault(responseText.ifBlank { "HTTP $statusCode" })
+            error(detail)
+        }
+
+        val json = JSONObject(responseText)
+        val usage = json.optJSONObject("usage")
+        CoachBackendResult(
+            coachText = json.optString("coachText", ""),
+            model = json.optString("model", ""),
+            responseId = json.optString("responseId", ""),
+            inputTokens = usage?.nullableInt("inputTokens"),
+            outputTokens = usage?.nullableInt("outputTokens")
+        )
+    } finally {
+        connection.disconnect()
+    }
+}
+
 private suspend fun readHealthConnectData(
     healthConnectClient: HealthConnectClient,
     selectedHealthData: SelectedHealthData
@@ -2560,6 +2691,14 @@ private data class FakeCoachResponse(
     val suggestions: List<String>
 )
 
+private data class CoachBackendResult(
+    val coachText: String,
+    val model: String,
+    val responseId: String,
+    val inputTokens: Int?,
+    val outputTokens: Int?
+)
+
 private data class SelectedHealthData(
     val includeSteps: Boolean,
     val includeSleep: Boolean,
@@ -2625,6 +2764,10 @@ private data class SelectedHealthData(
         }
         return labels.ifEmpty { listOf("manual entries only") }.joinToString()
     }
+}
+
+private fun JSONObject.nullableInt(name: String): Int? {
+    return if (has(name) && !isNull(name)) optInt(name) else null
 }
 
 private enum class AppSection(

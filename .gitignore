@@ -10,4 +10,8 @@ externalNativeBuild
 .cxx
 local.properties
 .env
+.env.*
 backend/.env
+backend/.env.*
+!backend/.env.example
+backend/New Text Document.txt
