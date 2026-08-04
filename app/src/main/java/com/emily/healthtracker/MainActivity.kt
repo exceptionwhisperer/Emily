@@ -213,6 +213,11 @@ private fun HealthTrackerScreen() {
     var symptoms by remember { mutableStateOf("") }
     var medications by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var aicdHighHeartRateLimit by remember { mutableStateOf("") }
+    var workoutHeartRateGoal by remember { mutableStateOf("") }
+    var restingHeartRateBaseline by remember { mutableStateOf("") }
+    var hrvBaseline by remember { mutableStateOf("") }
+    var profileHealthNotes by remember { mutableStateOf("") }
     var trendSummary by remember { mutableStateOf("7-day trends will appear after importing Health Connect data.") }
     var coachInsight by remember { mutableStateOf("Import or enter today's numbers, then ask Emily Coach for a plain-language summary.") }
     var chatGptCoachResponse by remember { mutableStateOf("") }
@@ -297,6 +302,13 @@ private fun HealthTrackerScreen() {
 
     LaunchedEffect(Unit) {
         entries.addAll(loadHealthEntries(preferences))
+        loadEmilyProfile(preferences)?.let { profile ->
+            aicdHighHeartRateLimit = profile.aicdHighHeartRateLimit
+            workoutHeartRateGoal = profile.workoutHeartRateGoal
+            restingHeartRateBaseline = profile.restingHeartRateBaseline
+            hrvBaseline = profile.hrvBaseline
+            profileHealthNotes = profile.healthNotes
+        }
     }
 
     LaunchedEffect(healthConnectClient, healthConnectPermissions) {
@@ -336,6 +348,13 @@ private fun HealthTrackerScreen() {
             workoutTypes = workoutTypes,
             workoutDetails = workoutDetails,
             weightPounds = weightPounds,
+            profile = EmilyProfile(
+                aicdHighHeartRateLimit = aicdHighHeartRateLimit,
+                workoutHeartRateGoal = workoutHeartRateGoal,
+                restingHeartRateBaseline = restingHeartRateBaseline,
+                hrvBaseline = hrvBaseline,
+                healthNotes = profileHealthNotes
+            ),
             selectedHealthData = selectedHealthData,
             recentEntries = entries.take(5)
         )
@@ -366,6 +385,13 @@ private fun HealthTrackerScreen() {
                 exerciseMinutes = exerciseMinutes,
                 workoutTypes = workoutTypes,
                 workoutDetails = workoutDetails,
+                profile = EmilyProfile(
+                    aicdHighHeartRateLimit = aicdHighHeartRateLimit,
+                    workoutHeartRateGoal = workoutHeartRateGoal,
+                    restingHeartRateBaseline = restingHeartRateBaseline,
+                    hrvBaseline = hrvBaseline,
+                    healthNotes = profileHealthNotes
+                ),
                 mood = mood.roundToInt(),
                 trendSummary = trendSummary
             )
@@ -780,6 +806,36 @@ private fun HealthTrackerScreen() {
                 inputTokens = coachInputTokens,
                 outputTokens = coachOutputTokens
             )
+            }
+        }
+
+        if (selectedSection == AppSection.Profile) {
+            item {
+                EmilyProfileCard(
+                    aicdHighHeartRateLimit = aicdHighHeartRateLimit,
+                    onAicdHighHeartRateLimitChange = { aicdHighHeartRateLimit = it },
+                    workoutHeartRateGoal = workoutHeartRateGoal,
+                    onWorkoutHeartRateGoalChange = { workoutHeartRateGoal = it },
+                    restingHeartRateBaseline = restingHeartRateBaseline,
+                    onRestingHeartRateBaselineChange = { restingHeartRateBaseline = it },
+                    hrvBaseline = hrvBaseline,
+                    onHrvBaselineChange = { hrvBaseline = it },
+                    healthNotes = profileHealthNotes,
+                    onHealthNotesChange = { profileHealthNotes = it },
+                    onSave = {
+                        saveEmilyProfile(
+                            preferences = preferences,
+                            profile = EmilyProfile(
+                                aicdHighHeartRateLimit = aicdHighHeartRateLimit,
+                                workoutHeartRateGoal = workoutHeartRateGoal,
+                                restingHeartRateBaseline = restingHeartRateBaseline,
+                                hrvBaseline = hrvBaseline,
+                                healthNotes = profileHealthNotes
+                            )
+                        )
+                        coachInsight = "Profile saved. Emily Coach will include these local profile notes when reviewing your data."
+                    }
+                )
             }
         }
 
@@ -1367,6 +1423,100 @@ private fun CoachUsageCard(
 }
 
 @Composable
+private fun EmilyProfileCard(
+    aicdHighHeartRateLimit: String,
+    onAicdHighHeartRateLimitChange: (String) -> Unit,
+    workoutHeartRateGoal: String,
+    onWorkoutHeartRateGoalChange: (String) -> Unit,
+    restingHeartRateBaseline: String,
+    onRestingHeartRateBaselineChange: (String) -> Unit,
+    hrvBaseline: String,
+    onHrvBaselineChange: (String) -> Unit,
+    healthNotes: String,
+    onHealthNotesChange: (String) -> Unit,
+    onSave: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Emily Profile",
+                color = Charcoal,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "These values stay local on this phone and help Emily Coach compare your imported data to your personal limits.",
+                color = Charcoal.copy(alpha = 0.72f),
+                fontSize = 13.sp
+            )
+            OutlinedTextField(
+                value = aicdHighHeartRateLimit,
+                onValueChange = onAicdHighHeartRateLimitChange,
+                label = { Text("AICD high HR caution limit") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = workoutHeartRateGoal,
+                onValueChange = onWorkoutHeartRateGoalChange,
+                label = { Text("Workout HR goal") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = restingHeartRateBaseline,
+                onValueChange = onRestingHeartRateBaselineChange,
+                label = { Text("Resting HR baseline") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = hrvBaseline,
+                onValueChange = onHrvBaselineChange,
+                label = { Text("HRV baseline") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = healthNotes,
+                onValueChange = onHealthNotesChange,
+                label = { Text("Health context for Emily Coach") },
+                minLines = 4,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = "Emily does not diagnose or replace your clinician. Use this profile to help Emily explain trends in your data.",
+                color = Coral,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Button(
+                onClick = onSave,
+                colors = ButtonDefaults.buttonColors(containerColor = Teal),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text("Save Profile", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
 private fun HealthConnectCard(
     statusText: String,
     isAvailable: Boolean,
@@ -1738,6 +1888,7 @@ private fun buildCoachInsight(
     workoutTypes: String,
     workoutDetails: String,
     weightPounds: String,
+    profile: EmilyProfile,
     selectedHealthData: SelectedHealthData,
     recentEntries: List<HealthEntry>
 ): String {
@@ -1758,6 +1909,7 @@ private fun buildCoachInsight(
     val symptomLine = symptoms.ifBlank { "No symptoms were entered for this check-in." }
     val medicationLine = medications.ifBlank { "No medication notes were entered for this check-in." }
     val noteLine = notes.ifBlank { "No extra notes were entered for this check-in." }
+    val profileLine = profile.summaryText()
     val recoveryTrend = recoveryTrendText(
         restingHeartRate = restingHeartRate,
         hrvToday = hrvToday,
@@ -1780,11 +1932,12 @@ private fun buildCoachInsight(
         Workout types: $workoutTypes
         Workout sessions: $workoutDetails
         Weight: ${weightPounds.ifBlank { "no weight data" }} lb.
+        Emily profile: $profileLine
         Symptoms: $symptomLine
         Medications: $medicationLine
         Notes: $noteLine
         
-        ChatGPT should explain the HRV and resting heart rate recovery trend first, then explain other patterns, ask one helpful follow-up question, and suggest small non-medical next steps. It should not diagnose, prescribe, or replace a clinician.
+        ChatGPT should explain the HRV and resting heart rate recovery trend first. If the profile includes AICD or workout heart-rate limits, compare workout peak HR to those saved limits in plain non-medical language. Then explain other patterns, ask one helpful follow-up question, and suggest small non-medical next steps. It should not diagnose, prescribe, or replace a clinician.
     """.trimIndent()
 }
 
@@ -1806,6 +1959,7 @@ private fun buildFakeCoachResponse(
     exerciseMinutes: String,
     workoutTypes: String,
     workoutDetails: String,
+    profile: EmilyProfile,
     mood: Int,
     trendSummary: String
 ): FakeCoachResponse {
@@ -1836,6 +1990,7 @@ private fun buildFakeCoachResponse(
     } else {
         "Workout time is $exerciseMinutes minutes, with sessions listed as $workoutDetails."
     }
+    val profileText = profile.summaryText()
 
     return FakeCoachResponse(
         response = """
@@ -1845,7 +2000,7 @@ private fun buildFakeCoachResponse(
             
             Recovery trend: $recoveryTrend
             
-            Health number: $wellnessScore. $sleepText $movementText $heartText $workoutText Mood is $mood/10.
+            Health number: $wellnessScore. $sleepText $movementText $heartText $workoutText Profile context: $profileText. Mood is $mood/10.
             
             Trend view: $trendSummary
             
@@ -2284,6 +2439,25 @@ private data class ImportedHealthMetrics(
     val workoutDetailsSummary: String
 )
 
+private data class EmilyProfile(
+    val aicdHighHeartRateLimit: String,
+    val workoutHeartRateGoal: String,
+    val restingHeartRateBaseline: String,
+    val hrvBaseline: String,
+    val healthNotes: String
+) {
+    fun summaryText(): String {
+        val parts = buildList {
+            if (aicdHighHeartRateLimit.isNotBlank()) add("AICD high HR caution limit ${aicdHighHeartRateLimit} bpm")
+            if (workoutHeartRateGoal.isNotBlank()) add("workout HR goal ${workoutHeartRateGoal} bpm")
+            if (restingHeartRateBaseline.isNotBlank()) add("resting HR baseline ${restingHeartRateBaseline} bpm")
+            if (hrvBaseline.isNotBlank()) add("HRV baseline ${hrvBaseline} ms")
+            if (healthNotes.isNotBlank()) add("health notes: $healthNotes")
+        }
+        return parts.ifEmpty { listOf("No profile limits saved yet.") }.joinToString(separator = "; ")
+    }
+}
+
 private data class FakeCoachResponse(
     val response: String,
     val suggestions: List<String>
@@ -2363,7 +2537,8 @@ private enum class AppSection(
     Home(label = "Home", icon = "⌂"),
     Data(label = "Review", icon = "▦"),
     Coach(label = "Coach", icon = "?"),
-    Trend(label = "Trend", icon = "↗")
+    Trend(label = "Trend", icon = "?"),
+    Profile(label = "Profile", icon = "P")
 }
 
 private fun loadHealthEntries(preferences: SharedPreferences): List<HealthEntry> {
@@ -2407,6 +2582,31 @@ private fun saveHealthEntries(
     preferences.edit().putString("entries", savedEntries.toString()).apply()
 }
 
+private fun loadEmilyProfile(preferences: SharedPreferences): EmilyProfile? {
+    val savedJson = preferences.getString("emilyProfile", null) ?: return null
+    val profile = JSONObject(savedJson)
+    return EmilyProfile(
+        aicdHighHeartRateLimit = profile.optString("aicdHighHeartRateLimit", ""),
+        workoutHeartRateGoal = profile.optString("workoutHeartRateGoal", ""),
+        restingHeartRateBaseline = profile.optString("restingHeartRateBaseline", ""),
+        hrvBaseline = profile.optString("hrvBaseline", ""),
+        healthNotes = profile.optString("healthNotes", "")
+    )
+}
+
+private fun saveEmilyProfile(
+    preferences: SharedPreferences,
+    profile: EmilyProfile
+) {
+    val savedProfile = JSONObject()
+        .put("aicdHighHeartRateLimit", profile.aicdHighHeartRateLimit)
+        .put("workoutHeartRateGoal", profile.workoutHeartRateGoal)
+        .put("restingHeartRateBaseline", profile.restingHeartRateBaseline)
+        .put("hrvBaseline", profile.hrvBaseline)
+        .put("healthNotes", profile.healthNotes)
+    preferences.edit().putString("emilyProfile", savedProfile.toString()).apply()
+}
+
 private val Cream = Color(0xFFFFF8F0)
 private val SoftMint = Color(0xFFE6F5F0)
 private val SoftCoral = Color(0xFFFFE8DF)
@@ -2427,3 +2627,4 @@ private val suggestedCoachQuestions = listOf(
 private fun EmilyAppPreview() {
     EmilyApp()
 }
+

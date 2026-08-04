@@ -5,6 +5,7 @@
 - Keep the main product focus on Coach and Data Review.
 - Make the Review tab easier to scan, with recovery data grouped before lower-priority metrics.
 - Make Emily Coach explain HRV plus resting heart rate recovery trends before other data.
+- Refine the Profile tab after Troy tests the first local limits and notes fields.
 - Put an OpenAI API key in `backend/.env` on the development computer.
 - Run the Emily Coach backend and test `GET /health`.
 - Test `POST /api/coach` with a sample health summary.
@@ -20,6 +21,7 @@
 ## Coach Work
 
 - Treat Emily Coach as the main app experience after Health Connect import.
+- Use local Emily Profile values when comparing workout peak HR to Troy's saved caution/goal values.
 - Decide what data Emily Coach should send to ChatGPT.
 - Keep the private backend as the only place that stores the OpenAI API key.
 - Add a real coach response screen after the backend exists.
