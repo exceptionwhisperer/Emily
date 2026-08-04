@@ -1012,7 +1012,7 @@ private fun ImportedDataRow(
                 color = if (isMissing) Charcoal.copy(alpha = 0.58f) else Teal,
                 fontSize = if (isMissing) 14.sp else 17.sp,
                 fontWeight = if (isMissing) FontWeight.SemiBold else FontWeight.Bold,
-                textAlign = TextAlign.End,
+                textAlign = TextAlign.Start,
                 modifier = Modifier.fillMaxWidth()
             )
         }
