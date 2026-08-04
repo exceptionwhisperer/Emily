@@ -16,6 +16,7 @@ Saved on July 29, 2026.
 - Reduced the Home page to the app header plus Health Connect connect/manage/import controls.
 - Added a Home testing card that fills Emily with fake sample data without Health Connect or OpenAI.
 - Expanded heart data usage to import latest, low, high, and sample count alongside average and resting heart rate.
+- Added HRV recovery tracking from Health Connect with today's latest HRV, 7-day average, sample count, and change text.
 
 ### Added
 
