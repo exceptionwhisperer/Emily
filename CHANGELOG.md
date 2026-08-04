@@ -20,6 +20,7 @@ Saved on July 29, 2026.
 - Updated Emily Coach to explain the HRV plus resting heart rate recovery trend first.
 - Refocused the app direction around Coach and Data Review, including renaming the Data tab to Review.
 - Reworked the Review tab to show recovery first and hide empty Workout/Weight cards until data exists.
+- Tightened Review row spacing so `No data` values are smaller, calmer, and better aligned.
 
 ### Added
 

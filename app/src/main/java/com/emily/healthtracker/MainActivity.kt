@@ -20,9 +20,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -982,6 +983,8 @@ private fun ImportedDataRow(
     modifier: Modifier = Modifier,
     unit: String = ""
 ) {
+    val isMissing = value == "No data"
+    val displayValue = if (unit.isBlank() || isMissing) value else "$value $unit"
     Row(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -994,14 +997,17 @@ private fun ImportedDataRow(
             text = label,
             color = Charcoal.copy(alpha = 0.72f),
             fontSize = 13.sp,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 10.dp)
         )
         Text(
-            text = if (unit.isBlank() || value == "No data") value else "$value $unit",
-            color = Teal,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.offset(x = 4.dp)
+            text = displayValue,
+            color = if (isMissing) Charcoal.copy(alpha = 0.58f) else Teal,
+            fontSize = if (isMissing) 14.sp else 17.sp,
+            fontWeight = if (isMissing) FontWeight.SemiBold else FontWeight.Bold,
+            textAlign = TextAlign.End,
+            modifier = Modifier.widthIn(min = 76.dp)
         )
     }
 }
