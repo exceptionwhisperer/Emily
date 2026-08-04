@@ -7,6 +7,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -47,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -1231,16 +1235,38 @@ private fun Header(wellnessScore: Int) {
 
 @Composable
 private fun ScoreCircle(score: Int) {
+    var displayedScoreTarget by remember { mutableStateOf(0) }
+    var rotationTarget by remember { mutableStateOf(0f) }
+    val displayedScore by animateIntAsState(
+        targetValue = displayedScoreTarget,
+        animationSpec = tween(durationMillis = 900),
+        label = "scoreCountUp"
+    )
+    val rotationDegrees by animateFloatAsState(
+        targetValue = rotationTarget,
+        animationSpec = tween(durationMillis = 900),
+        label = "scoreSpin"
+    )
+
+    LaunchedEffect(score) {
+        displayedScoreTarget = score
+        rotationTarget += 360f
+    }
+
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .size(76.dp)
+            .graphicsLayer(rotationZ = rotationDegrees)
             .clip(CircleShape)
             .background(Teal)
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.graphicsLayer(rotationZ = -rotationDegrees)
+        ) {
             Text(
-                text = score.toString(),
+                text = displayedScore.toString(),
                 color = Color.White,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold
