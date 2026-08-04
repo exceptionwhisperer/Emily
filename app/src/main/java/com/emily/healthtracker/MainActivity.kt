@@ -1550,6 +1550,7 @@ private fun MetricCard(
     value: String,
     content: @Composable () -> Unit
 ) {
+    val stackHeader = title.length + value.length > 26
     Card(
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -1560,13 +1561,23 @@ private fun MetricCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(16.dp)
         ) {
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(text = title, color = Charcoal, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text(text = value, color = Teal, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            if (stackHeader) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(text = title, color = Charcoal, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(text = value, color = Teal, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
+            } else {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(text = title, color = Charcoal, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(text = value, color = Teal, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
             content()
         }
