@@ -18,6 +18,7 @@ Saved on July 29, 2026.
 - Expanded heart data usage to import latest, low, high, and sample count alongside average and resting heart rate.
 - Added HRV recovery tracking from Health Connect with today's latest HRV, 7-day average, sample count, and change text.
 - Updated Emily Coach to explain the HRV plus resting heart rate recovery trend first.
+- Refocused the app direction around Coach and Data Review, including renaming the Data tab to Review.
 
 ### Added
 

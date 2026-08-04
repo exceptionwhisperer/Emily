@@ -392,7 +392,7 @@ private fun HealthTrackerScreen() {
         medications = "Morning vitamins logged."
         notes = "Good energy today. Testing Emily with fake sample data."
         trendSummary = "7-day trend: 8120 steps/day, 7.1 sleep hours/day, 38 exercise min/day, 390 active calories/day, 76 bpm average heart rate, 68 bpm resting heart rate, heart range 58-132 bpm, 96 heart samples, HRV 38.2 ms 7-day average. Today's resting heart rate is 67 bpm, 1 below your 7-day average. Latest HRV today is 42.6 ms, 4.4 above your 7-day average. Latest heart rate today is 74 bpm. Workout types this week: Walking x3, Strength training x1. Today: 9420 steps and 7.4 sleep hours."
-        coachInsight = "Fake health data has been filled in. Go to Data, Coach, or Trend to test the cards."
+        coachInsight = "Fake health data has been filled in. Go to Review, Coach, or Trend to test the cards."
         chatGptCoachResponse = "Fake Emily Coach response is ready. This did not call OpenAI and did not use tokens."
         chatGptSuggestions = listOf(
             "Check the Trend tab to see the fake 7-day summary.",
@@ -2235,7 +2235,7 @@ private enum class AppSection(
     val icon: String
 ) {
     Home(label = "Home", icon = "⌂"),
-    Data(label = "Data", icon = "▦"),
+    Data(label = "Review", icon = "▦"),
     Coach(label = "Coach", icon = "?"),
     Trend(label = "Trend", icon = "↗")
 }
@@ -2289,10 +2289,11 @@ private val Coral = Color(0xFFE96F5F)
 private val Charcoal = Color(0xFF24302F)
 
 private val suggestedCoachQuestions = listOf(
-    "What trends do you see today?",
-    "What should I focus on tomorrow?",
     "Is my HRV and resting heart rate showing recovery?",
-    "How did my workout affect recovery?"
+    "Review my data and tell me what changed.",
+    "What trends do you see today?",
+    "How did my workout affect recovery?",
+    "What should I focus on tomorrow?"
 )
 
 @Preview(showBackground = true)

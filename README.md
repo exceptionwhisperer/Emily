@@ -1,6 +1,8 @@
 # Emily
 
-Emily is a simple native Android health tracker starter app built with Kotlin and Jetpack Compose.
+Emily is a native Android health data review and coach app built with Kotlin and Jetpack Compose.
+
+The main focus is **Coach** and **Data Review**. Emily imports selected Health Connect data, reviews the numbers for trend context, then prepares coach-style guidance with special attention on HRV and resting heart rate recovery changes.
 
 Current version: `1.0.0 (1)`
 
@@ -10,12 +12,12 @@ See `CHANGELOG.md` for saved version notes and `TODO.md` for the current build l
 
 Emily has two kinds of data:
 
-- **Imported Health Connect data:** sleep, steps, average heart rate, resting heart rate, active calories, workout minutes, workout types, and weight.
+- **Imported Health Connect data:** sleep, steps, heart rate, HRV, resting heart rate, active calories, workout minutes, workout types, and weight.
 - **Manual check-in data:** mood, symptoms, medications, and notes.
 
 Use the app in this order:
 
-1. Tap **Data to use > Change** and choose which Health Connect data Emily should use.
+1. Tap **Review > Data to use > Change** and choose which Health Connect data Emily should use.
 2. Tap **Connect** only when setting up permissions for the first time or after changing selected data types.
 3. Tap **Import Today** whenever you want to refresh today's Health Connect numbers.
 4. Fill in manual check-in items like mood, symptoms, medications, and notes.
@@ -33,9 +35,9 @@ You do **not** need to tap **Connect** every time. Once Health Connect permissio
 - Symptoms
 - Medication notes
 - Personal health notes
-- Health Connect imports for steps, sleep, average heart rate, resting heart rate, active calories, exercise minutes, workout types, and weight
+- Health Connect imports for steps, sleep, heart rate, HRV, resting heart rate, active calories, exercise minutes, workout types, and weight
 - A data-selection card to choose exactly which Health Connect data Emily imports and uses for coaching
-- 7-day trend summaries for coaching context, including resting heart rate change
+- 7-day trend summaries for coaching context, including HRV and resting heart rate recovery changes
 - Emily Coach summaries that prepare the user's data for ChatGPT-style guidance
 
 ## How To Open It
@@ -71,13 +73,13 @@ If this local checkout has no GitHub remote yet, create an empty GitHub reposito
 
 ## Health Connect
 
-Emily can request permission to read steps, sleep, average heart rate, resting heart rate, active calories, exercise sessions, workout types, and weight from Android Health Connect.
+Emily can request permission to read steps, sleep, heart rate, HRV, resting heart rate, active calories, exercise sessions, workout types, and weight from Android Health Connect.
 
 For testing:
 
 1. Run Emily on a device or emulator where Health Connect is available.
 2. Make sure another app has written steps or sleep data into Health Connect.
-3. Use **Data to use** to check or uncheck the health data Emily should import.
+3. Use **Review > Data to use** to check or uncheck the health data Emily should import.
 4. Tap **Connect** inside Emily and grant the requested health permissions.
 5. Tap **Import Today** to pull selected data and update the 7-day trend card.
 
@@ -85,6 +87,6 @@ Health Connect only gives Emily data after the user grants permission.
 
 ## Emily Coach
 
-Emily now includes a starter coach card. It summarizes the current health number, imported data, symptoms, medication notes, and recent check-ins.
+Emily now includes a starter coach card. It summarizes the current health number, imported data, symptoms, medication notes, recent check-ins, and the HRV plus resting heart rate recovery trend.
 
 The first private backend is in `backend/`. The Android app should not store an OpenAI API key directly. See `docs/AI_COACH_PLAN.md` and `backend/README.md`.
