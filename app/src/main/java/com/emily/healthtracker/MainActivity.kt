@@ -36,6 +36,9 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -216,6 +219,7 @@ private fun HealthTrackerScreen() {
     var includeWorkouts by remember { mutableStateOf(true) }
     var includeWeight by remember { mutableStateOf(true) }
     var isDataSelectionExpanded by remember { mutableStateOf(false) }
+    var selectedSection by remember { mutableStateOf(AppSection.Home) }
     val entries = remember { mutableStateListOf<HealthEntry>() }
     val context = androidx.compose.ui.platform.LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -341,19 +345,101 @@ private fun HealthTrackerScreen() {
         }
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Cream)
-            .padding(horizontal = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
+    Scaffold(
+        containerColor = Cream,
+        bottomBar = {
+            EmilyBottomNavigation(
+                selectedSection = selectedSection,
+                onSectionSelected = { selectedSection = it }
+            )
+        }
+    ) { contentPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Cream)
+                .padding(contentPadding)
+                .padding(horizontal = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
         item {
             Spacer(modifier = Modifier.height(10.dp))
             Header(wellnessScore = wellnessScore)
         }
 
-        if (includeSleep) {
+        if (selectedSection == AppSection.Home) {
+            item {
+                HealthConnectCard(
+                    statusText = healthConnectMessage,
+                    isAvailable = healthConnectClient != null,
+                    hasPermission = hasHealthConnectPermission,
+                    hasSelectedData = hasSelectedData,
+                    onRequestPermission = {
+                        try {
+                            requestedPermissions = healthConnectPermissions
+                            permissionLauncher.launch(healthConnectPermissions)
+                        } catch (exception: Exception) {
+                            healthConnectMessage =
+                                "Health Connect could not open permissions: ${exception.message ?: "unknown issue"}"
+                        }
+                    },
+                    onManageAccess = {
+                        try {
+                            context.startActivity(Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS))
+                        } catch (exception: Exception) {
+                            healthConnectMessage =
+                                "Emily could not open Health Connect settings: ${exception.message ?: "unknown issue"}"
+                        }
+                    },
+                    onImportToday = {
+                        val client = healthConnectClient ?: return@HealthConnectCard
+                        coroutineScope.launch {
+                            try {
+                                val currentGrantedPermissions = client.permissionController.getGrantedPermissions()
+                                updatePermissionState(currentGrantedPermissions)
+                                val importableData = selectedHealthData.withGrantedPermissions(currentGrantedPermissions)
+                                if (!importableData.hasAnyHealthConnectImport()) {
+                                    healthConnectMessage = "No selected Health Connect permissions are granted yet. Tap Connect or Manage first."
+                                    return@launch
+                                }
+                                val importedData = readHealthConnectData(client, importableData)
+                                if (importableData.includeSteps) {
+                                    steps = importedData.today.steps?.toString().orEmpty()
+                                }
+                                if (importableData.includeSleep) {
+                                    sleepHours = importedData.today.sleepMinutes?.let { formatHours(it) }.orEmpty()
+                                }
+                                if (importableData.includeHeartRate) {
+                                    heartRate = importedData.today.averageHeartRate?.toString().orEmpty()
+                                    restingHeartRate = importedData.today.restingHeartRate?.toString().orEmpty()
+                                }
+                                if (importableData.includeActiveCalories) {
+                                    activeCalories = importedData.today.activeCalories
+                                        ?.roundToInt()
+                                        ?.takeIf { it > 0 }
+                                        ?.toString()
+                                        .orEmpty()
+                                }
+                                if (importableData.includeWorkouts) {
+                                    exerciseMinutes = importedData.today.exerciseMinutes?.toString().orEmpty()
+                                    workoutTypes = importedData.today.workoutTypesSummary
+                                }
+                                if (importableData.includeWeight) {
+                                    weightPounds = importedData.latestWeightPounds?.let { formatOneDecimal(it) }.orEmpty()
+                                }
+                                trendSummary = importedData.trendSummary
+                                healthConnectMessage = "Imported granted Health Connect data and updated 7-day trends."
+                            } catch (exception: Exception) {
+                                healthConnectMessage =
+                                    "Emily could not import Health Connect data yet: ${exception.message ?: "unknown issue"}"
+                            }
+                        }
+                    }
+                )
+            }
+        }
+
+        if (selectedSection == AppSection.Data && includeSleep) {
             item {
                 MetricCard(title = "Sleep", value = "${sleepHours.ifBlank { "0" }} hours") {
                     ImportedDataRow(
@@ -365,7 +451,8 @@ private fun HealthTrackerScreen() {
             }
         }
 
-        item {
+        if (selectedSection == AppSection.Data) {
+            item {
             DataSelectionCard(
                 includeSteps = includeSteps,
                 onIncludeStepsChange = {
@@ -406,79 +493,10 @@ private fun HealthTrackerScreen() {
                 isExpanded = isDataSelectionExpanded,
                 onToggleExpanded = { isDataSelectionExpanded = !isDataSelectionExpanded }
             )
+            }
         }
 
-        item {
-            HealthConnectCard(
-                statusText = healthConnectMessage,
-                isAvailable = healthConnectClient != null,
-                hasPermission = hasHealthConnectPermission,
-                hasSelectedData = hasSelectedData,
-                onRequestPermission = {
-                    try {
-                        requestedPermissions = healthConnectPermissions
-                        permissionLauncher.launch(healthConnectPermissions)
-                    } catch (exception: Exception) {
-                        healthConnectMessage =
-                            "Health Connect could not open permissions: ${exception.message ?: "unknown issue"}"
-                    }
-                },
-                onManageAccess = {
-                    try {
-                        context.startActivity(Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS))
-                    } catch (exception: Exception) {
-                        healthConnectMessage =
-                            "Emily could not open Health Connect settings: ${exception.message ?: "unknown issue"}"
-                    }
-                },
-                onImportToday = {
-                    val client = healthConnectClient ?: return@HealthConnectCard
-                    coroutineScope.launch {
-                        try {
-                            val currentGrantedPermissions = client.permissionController.getGrantedPermissions()
-                            updatePermissionState(currentGrantedPermissions)
-                            val importableData = selectedHealthData.withGrantedPermissions(currentGrantedPermissions)
-                            if (!importableData.hasAnyHealthConnectImport()) {
-                                healthConnectMessage = "No selected Health Connect permissions are granted yet. Tap Connect or Manage first."
-                                return@launch
-                            }
-                            val importedData = readHealthConnectData(client, importableData)
-                            if (importableData.includeSteps) {
-                                steps = importedData.today.steps?.toString().orEmpty()
-                            }
-                            if (importableData.includeSleep) {
-                                sleepHours = importedData.today.sleepMinutes?.let { formatHours(it) }.orEmpty()
-                            }
-                            if (importableData.includeHeartRate) {
-                                heartRate = importedData.today.averageHeartRate?.toString().orEmpty()
-                                restingHeartRate = importedData.today.restingHeartRate?.toString().orEmpty()
-                            }
-                            if (importableData.includeActiveCalories) {
-                                activeCalories = importedData.today.activeCalories
-                                    ?.roundToInt()
-                                    ?.takeIf { it > 0 }
-                                    ?.toString()
-                                    .orEmpty()
-                            }
-                            if (importableData.includeWorkouts) {
-                                exerciseMinutes = importedData.today.exerciseMinutes?.toString().orEmpty()
-                                workoutTypes = importedData.today.workoutTypesSummary
-                            }
-                            if (importableData.includeWeight) {
-                                weightPounds = importedData.latestWeightPounds?.let { formatOneDecimal(it) }.orEmpty()
-                            }
-                            trendSummary = importedData.trendSummary
-                            healthConnectMessage = "Imported granted Health Connect data and updated 7-day trends."
-                        } catch (exception: Exception) {
-                            healthConnectMessage =
-                                "Emily could not import Health Connect data yet: ${exception.message ?: "unknown issue"}"
-                        }
-                    }
-                }
-            )
-        }
-
-        if (includeSteps) {
+        if (selectedSection == AppSection.Data && includeSteps) {
             item {
                 MetricCard(title = "Movement", value = "${steps.ifBlank { "0" }} steps") {
                     ImportedDataRow(label = "Steps from Health Connect", value = steps.ifBlank { "No data" })
@@ -486,7 +504,7 @@ private fun HealthTrackerScreen() {
             }
         }
 
-        if (includeHeartRate) {
+        if (selectedSection == AppSection.Data && includeHeartRate) {
             item {
                 MetricCard(
                     title = "Heart",
@@ -508,7 +526,7 @@ private fun HealthTrackerScreen() {
             }
         }
 
-        if (includeWorkouts || includeActiveCalories) {
+        if (selectedSection == AppSection.Data && (includeWorkouts || includeActiveCalories)) {
             item {
                 MetricCard(
                     title = "Workout",
@@ -535,7 +553,7 @@ private fun HealthTrackerScreen() {
             }
         }
 
-        if (includeWeight) {
+        if (selectedSection == AppSection.Data && includeWeight) {
             item {
                 MetricCard(title = "Weight", value = if (weightPounds.isBlank()) "No data" else "$weightPounds lb") {
                     ImportedDataRow(
@@ -547,7 +565,8 @@ private fun HealthTrackerScreen() {
             }
         }
 
-        item {
+        if (selectedSection == AppSection.Data) {
+            item {
             MetricCard(title = "Mood", value = "${mood.roundToInt()} / 10") {
                 Slider(
                     value = mood,
@@ -556,9 +575,11 @@ private fun HealthTrackerScreen() {
                     steps = 8
                 )
             }
+            }
         }
 
-        item {
+        if (selectedSection == AppSection.Data) {
+            item {
             NotesCard(
                 symptoms = symptoms,
                 onSymptomsChange = { symptoms = it },
@@ -567,13 +588,17 @@ private fun HealthTrackerScreen() {
                 notes = notes,
                 onNotesChange = { notes = it }
             )
+            }
         }
 
-        item {
+        if (selectedSection == AppSection.Trend) {
+            item {
             TrendCard(trendSummary = trendSummary)
+            }
         }
 
-        item {
+        if (selectedSection == AppSection.Coach) {
+            item {
             EmilyCoachCard(
                 insight = coachInsight,
                 onGenerateInsight = {
@@ -585,9 +610,11 @@ private fun HealthTrackerScreen() {
                     )
                 }
             )
+            }
         }
 
-        item {
+        if (selectedSection == AppSection.Coach) {
+            item {
             CoachConversationCard(
                 fakeCoachMode = fakeCoachMode,
                 onFakeCoachModeChange = { fakeCoachMode = it },
@@ -602,25 +629,31 @@ private fun HealthTrackerScreen() {
                     }
                 }
             )
+            }
         }
 
-        item {
+        if (selectedSection == AppSection.Coach) {
+            item {
             ChatGptCoachResponseCard(
                 response = chatGptCoachResponse,
                 suggestions = chatGptSuggestions
             )
+            }
         }
 
-        item {
+        if (selectedSection == AppSection.Coach) {
+            item {
             CoachUsageCard(
                 fakeCoachMode = fakeCoachMode,
                 requestCount = coachRequestCount,
                 inputTokens = coachInputTokens,
                 outputTokens = coachOutputTokens
             )
+            }
         }
 
-        item {
+        if (selectedSection == AppSection.Data) {
+            item {
             Button(
                 onClick = {
                     entries.add(
@@ -650,9 +683,11 @@ private fun HealthTrackerScreen() {
             ) {
                 Text("Save Today's Check-In", fontWeight = FontWeight.Bold)
             }
+            }
         }
 
-        item {
+        if (selectedSection == AppSection.Data) {
+            item {
             Text(
                 text = "Recent check-ins",
                 fontSize = 20.sp,
@@ -660,13 +695,14 @@ private fun HealthTrackerScreen() {
                 color = Charcoal,
                 modifier = Modifier.padding(top = 4.dp)
             )
+            }
         }
 
-        if (entries.isEmpty()) {
+        if (selectedSection == AppSection.Data && entries.isEmpty()) {
             item {
                 EmptyState()
             }
-        } else {
+        } else if (selectedSection == AppSection.Data) {
             items(entries) { entry ->
                 EntryCard(entry = entry)
             }
@@ -675,6 +711,30 @@ private fun HealthTrackerScreen() {
         item {
             VersionFooter()
             Spacer(modifier = Modifier.height(18.dp))
+        }
+    }
+    }
+}
+
+@Composable
+private fun EmilyBottomNavigation(
+    selectedSection: AppSection,
+    onSectionSelected: (AppSection) -> Unit
+) {
+    NavigationBar(containerColor = Color.White) {
+        AppSection.entries.forEach { section ->
+            NavigationBarItem(
+                selected = selectedSection == section,
+                onClick = { onSectionSelected(section) },
+                icon = {
+                    Text(
+                        text = section.icon,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                label = { Text(section.label) }
+            )
         }
     }
 }
@@ -1858,6 +1918,16 @@ private data class SelectedHealthData(
         }
         return labels.ifEmpty { listOf("manual entries only") }.joinToString()
     }
+}
+
+private enum class AppSection(
+    val label: String,
+    val icon: String
+) {
+    Home(label = "Home", icon = "⌂"),
+    Data(label = "Data", icon = "▦"),
+    Coach(label = "Coach", icon = "?"),
+    Trend(label = "Trend", icon = "↗")
 }
 
 private fun loadHealthEntries(preferences: SharedPreferences): List<HealthEntry> {

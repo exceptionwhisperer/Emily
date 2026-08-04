@@ -12,6 +12,8 @@ Saved on July 29, 2026.
 - Added fake coach responses that use the current health numbers and trend summary.
 - Changed trend and coach response text into scannable bullet lists.
 - Made the Trend heading larger and bold for easier reading.
+- Added bottom navigation sections for Home, Data, Coach, and Trend.
+- Reduced the Home page to the app header plus Health Connect connect/manage/import controls.
 
 ### Added
 
