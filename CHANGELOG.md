@@ -1,5 +1,26 @@
 # Emily Changelog
 
+## 2.0.0 (2) - Emily Coach Backend Test Build
+
+Saved on August 4, 2026.
+
+### Latest Milestone
+
+- Wired the Android Coach screen to call the private Emily backend when fake data test mode is unchecked.
+- Added an editable backend URL field in Profile so the phone can point to the Windows backend.
+- Added Android internet permission for the Coach backend call.
+- Kept the OpenAI API key out of the Android app and GitHub by using `backend/.env`.
+- Updated the backend to return OpenAI token usage for Coach cost tracking.
+- Updated Debug to show the backend URL, backend status, Coach mode, and token counters.
+- Confirmed the backend can call OpenAI successfully with `gpt-5`.
+- Marked the app as Android version `2.0.0 (2)`.
+
+### Notes
+
+- Phone test backend URL on Troy's current network: `http://192.168.68.66:8787`.
+- Fake data test mode remains available for free UI testing.
+- This is still a local/private test build, not a Play Store release.
+
 ## 1.0.0 (1) - Local Android Test Build
 
 Saved on July 29, 2026.

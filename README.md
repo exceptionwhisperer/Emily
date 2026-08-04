@@ -4,7 +4,7 @@ Emily is a native Android health data review and coach app built with Kotlin and
 
 The main focus is **Coach** and **Data Review**. Emily imports selected Health Connect data, reviews the numbers for trend context, then prepares coach-style guidance with special attention on HRV and resting heart rate recovery changes.
 
-Current version: `1.0.0 (1)`
+Current version: `2.0.0 (2)`
 
 See `CHANGELOG.md` for saved version notes and `TODO.md` for the current build list.
 
@@ -88,9 +88,9 @@ Health Connect only gives Emily data after the user grants permission.
 
 ## Emily Coach
 
-Emily now includes a starter coach card. It summarizes the current health number, imported data, symptoms, medication notes, recent check-ins, and the HRV plus resting heart rate recovery trend.
+Emily now includes a coach card that summarizes the current health number, imported data, symptoms, medication notes, recent check-ins, and the HRV plus resting heart rate recovery trend.
 
-The first private backend is in `backend/`. The Android app should not store an OpenAI API key directly. See `docs/AI_COACH_PLAN.md` and `backend/README.md`.
+The first private backend is in `backend/`. The Android app stores only the backend URL, while the OpenAI API key stays in `backend/.env` on the development computer. See `docs/AI_COACH_PLAN.md` and `backend/README.md`.
 
 ## Emily Profile
 
