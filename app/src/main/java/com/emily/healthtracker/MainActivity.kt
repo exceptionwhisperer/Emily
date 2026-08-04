@@ -808,6 +808,36 @@ private fun ImportedDataRow(
 }
 
 @Composable
+private fun BulletTextList(
+    text: String,
+    fontSize: Int = 14
+) {
+    val bulletItems = remember(text) { text.toBulletItems() }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        bulletItems.forEach { item ->
+            Row(
+                verticalAlignment = Alignment.Top,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "-",
+                    color = Teal,
+                    fontSize = fontSize.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text(
+                    text = item,
+                    color = Charcoal.copy(alpha = 0.78f),
+                    fontSize = fontSize.sp,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun TrendCard(trendSummary: String) {
     Card(
         shape = RoundedCornerShape(8.dp),
@@ -816,16 +846,19 @@ private fun TrendCard(trendSummary: String) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "7-day trends",
+                text = "Trend",
                 color = Charcoal,
-                fontSize = 18.sp,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Bold
             )
-            Text(text = trendSummary, color = Charcoal.copy(alpha = 0.78f))
+            BulletTextList(
+                text = trendSummary,
+                fontSize = 16
+            )
         }
     }
 }
@@ -851,7 +884,7 @@ private fun EmilyCoachCard(
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
-            Text(text = insight, color = Charcoal.copy(alpha = 0.78f))
+            BulletTextList(text = insight)
             Button(
                 onClick = onGenerateInsight,
                 colors = ButtonDefaults.buttonColors(containerColor = Teal),
@@ -987,11 +1020,10 @@ private fun ChatGptCoachResponseCard(
                     fontWeight = FontWeight.SemiBold
                 )
             }
-            Text(
+            BulletTextList(
                 text = response.ifBlank {
                     "After the backend is connected, ChatGPT's explanation of your health number will appear here."
-                },
-                color = Charcoal.copy(alpha = 0.78f)
+                }
             )
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
@@ -1680,6 +1712,26 @@ private fun workoutSummary(
         if (includeActiveCalories) add("${activeCalories.ifBlank { "No data" }} cal")
     }
     return parts.joinToString(" | ").ifBlank { "No data" }
+}
+
+private fun String.toBulletItems(): List<String> {
+    return trim()
+        .replace("\r", "")
+        .split("\n", ". ")
+        .map { line ->
+            line.trim()
+                .removePrefix("-")
+                .removePrefix("•")
+                .trim()
+        }
+        .filter { line -> line.isNotBlank() }
+        .map { line ->
+            if (line.endsWith(".") || line.endsWith(":") || line.endsWith("?")) {
+                line
+            } else {
+                "$line."
+            }
+        }
 }
 
 private data class HealthEntry(

@@ -10,6 +10,8 @@ Saved on July 29, 2026.
 - Added suggested coach questions and a custom question field.
 - Added session usage tracking for coach requests, estimated input tokens, estimated output tokens, and cost display.
 - Added fake coach responses that use the current health numbers and trend summary.
+- Changed trend and coach response text into scannable bullet lists.
+- Made the Trend heading larger and bold for easier reading.
 
 ### Added
 
