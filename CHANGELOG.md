@@ -19,6 +19,7 @@ Saved on July 29, 2026.
 - Added HRV recovery tracking from Health Connect with today's latest HRV, 7-day average, sample count, and change text.
 - Updated Emily Coach to explain the HRV plus resting heart rate recovery trend first.
 - Refocused the app direction around Coach and Data Review, including renaming the Data tab to Review.
+- Reworked the Review tab to show recovery first and hide empty Workout/Weight cards until data exists.
 
 ### Added
 

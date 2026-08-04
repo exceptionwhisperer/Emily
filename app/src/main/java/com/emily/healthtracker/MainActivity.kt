@@ -226,7 +226,7 @@ private fun HealthTrackerScreen() {
     var includeHeartRate by remember { mutableStateOf(true) }
     var includeActiveCalories by remember { mutableStateOf(true) }
     var includeWorkouts by remember { mutableStateOf(true) }
-    var includeWeight by remember { mutableStateOf(true) }
+    var includeWeight by remember { mutableStateOf(false) }
     var isDataSelectionExpanded by remember { mutableStateOf(false) }
     var selectedSection by remember { mutableStateOf(AppSection.Home) }
     val entries = remember { mutableStateListOf<HealthEntry>() }
@@ -253,6 +253,14 @@ private fun HealthTrackerScreen() {
     )
     val healthConnectPermissions = selectedHealthData.permissions()
     val hasSelectedData = selectedHealthData.hasAnyHealthConnectImport()
+    val hasWorkoutReviewData = exerciseMinutes.isNotBlank() ||
+        activeCalories.isNotBlank() ||
+        (
+            workoutTypes.isNotBlank() &&
+                workoutTypes != "No workout types imported yet." &&
+                workoutTypes != "Workout data not selected"
+            )
+    val hasWeightReviewData = weightPounds.isNotBlank()
     var requestedPermissions by remember { mutableStateOf(emptySet<String>()) }
     var grantedHealthPermissions by remember { mutableStateOf(emptySet<String>()) }
     var hasHealthConnectPermission by remember { mutableStateOf(false) }
@@ -519,18 +527,6 @@ private fun HealthTrackerScreen() {
             }
         }
 
-        if (selectedSection == AppSection.Data && includeSleep) {
-            item {
-                MetricCard(title = "Sleep", value = "${sleepHours.ifBlank { "0" }} hours") {
-                    ImportedDataRow(
-                        label = "Sleep from Health Connect",
-                        value = sleepHours.ifBlank { "No data" },
-                        unit = "hours"
-                    )
-                }
-            }
-        }
-
         if (selectedSection == AppSection.Data) {
             item {
             DataSelectionCard(
@@ -584,21 +580,32 @@ private fun HealthTrackerScreen() {
             }
         }
 
-        if (selectedSection == AppSection.Data && includeSteps) {
-            item {
-                MetricCard(title = "Movement", value = "${steps.ifBlank { "0" }} steps") {
-                    ImportedDataRow(label = "Steps from Health Connect", value = steps.ifBlank { "No data" })
-                }
-            }
-        }
-
         if (selectedSection == AppSection.Data && includeHeartRate) {
             item {
                 MetricCard(
-                    title = "Heart",
-                    value = heartSummary(heartRate, restingHeartRate)
+                    title = "Recovery review",
+                    value = recoveryReviewSummary(hrvToday, hrvWeekAverage, restingHeartRate)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ImportedDataRow(
+                            label = "HRV today",
+                            value = hrvToday.ifBlank { "No data" },
+                            unit = "ms"
+                        )
+                        ImportedDataRow(
+                            label = "HRV 7-day average",
+                            value = hrvWeekAverage.ifBlank { "No data" },
+                            unit = "ms"
+                        )
+                        ImportedDataRow(
+                            label = "HRV recovery change",
+                            value = hrvChange.ifBlank { "No data" }
+                        )
+                        ImportedDataRow(
+                            label = "Resting heart rate today",
+                            value = restingHeartRate.ifBlank { "No data" },
+                            unit = "bpm"
+                        )
                         ImportedDataRow(
                             label = "Average heart rate",
                             value = heartRate.ifBlank { "No data" },
@@ -607,11 +614,6 @@ private fun HealthTrackerScreen() {
                         ImportedDataRow(
                             label = "Latest heart rate",
                             value = latestHeartRate.ifBlank { "No data" },
-                            unit = "bpm"
-                        )
-                        ImportedDataRow(
-                            label = "Resting heart rate today",
-                            value = restingHeartRate.ifBlank { "No data" },
                             unit = "bpm"
                         )
                         ImportedDataRow(
@@ -629,20 +631,6 @@ private fun HealthTrackerScreen() {
                             value = heartRateSamples.ifBlank { "No data" }
                         )
                         ImportedDataRow(
-                            label = "HRV today",
-                            value = hrvToday.ifBlank { "No data" },
-                            unit = "ms"
-                        )
-                        ImportedDataRow(
-                            label = "HRV 7-day average",
-                            value = hrvWeekAverage.ifBlank { "No data" },
-                            unit = "ms"
-                        )
-                        ImportedDataRow(
-                            label = "HRV recovery change",
-                            value = hrvChange.ifBlank { "No data" }
-                        )
-                        ImportedDataRow(
                             label = "HRV samples today",
                             value = hrvSamples.ifBlank { "No data" }
                         )
@@ -651,7 +639,27 @@ private fun HealthTrackerScreen() {
             }
         }
 
-        if (selectedSection == AppSection.Data && (includeWorkouts || includeActiveCalories)) {
+        if (selectedSection == AppSection.Data && includeSleep) {
+            item {
+                MetricCard(title = "Sleep", value = "${sleepHours.ifBlank { "0" }} hours") {
+                    ImportedDataRow(
+                        label = "Sleep from Health Connect",
+                        value = sleepHours.ifBlank { "No data" },
+                        unit = "hours"
+                    )
+                }
+            }
+        }
+
+        if (selectedSection == AppSection.Data && includeSteps) {
+            item {
+                MetricCard(title = "Movement", value = "${steps.ifBlank { "0" }} steps") {
+                    ImportedDataRow(label = "Steps from Health Connect", value = steps.ifBlank { "No data" })
+                }
+            }
+        }
+
+        if (selectedSection == AppSection.Data && (includeWorkouts || includeActiveCalories) && hasWorkoutReviewData) {
             item {
                 MetricCard(
                     title = "Workout",
@@ -678,7 +686,7 @@ private fun HealthTrackerScreen() {
             }
         }
 
-        if (selectedSection == AppSection.Data && includeWeight) {
+        if (selectedSection == AppSection.Data && includeWeight && hasWeightReviewData) {
             item {
                 MetricCard(title = "Weight", value = if (weightPounds.isBlank()) "No data" else "$weightPounds lb") {
                     ImportedDataRow(
@@ -2080,13 +2088,15 @@ private fun List<Double>.averageOrNull(): Double? {
     return if (isEmpty()) null else average()
 }
 
-private fun heartSummary(
-    averageHeartRate: String,
+private fun recoveryReviewSummary(
+    hrvToday: String,
+    hrvWeekAverage: String,
     restingHeartRate: String
 ): String {
-    val averageText = if (averageHeartRate.isBlank()) "avg --" else "avg $averageHeartRate"
-    val restingText = if (restingHeartRate.isBlank()) "rest today --" else "rest today $restingHeartRate"
-    return "$averageText | $restingText"
+    val hrvText = if (hrvToday.isBlank()) "HRV --" else "HRV $hrvToday"
+    val hrvBaselineText = if (hrvWeekAverage.isBlank()) "base --" else "base $hrvWeekAverage"
+    val restingText = if (restingHeartRate.isBlank()) "rest --" else "rest $restingHeartRate"
+    return "$hrvText | $hrvBaselineText | $restingText"
 }
 
 private fun workoutSummary(
