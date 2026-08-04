@@ -985,13 +985,38 @@ private fun ImportedDataRow(
 ) {
     val isMissing = value == "No data"
     val displayValue = if (unit.isBlank() || isMissing) value else "$value $unit"
+    val needsStackedLayout = displayValue.length > 16
+    val rowModifier = modifier
+        .fillMaxWidth()
+        .background(SoftMint.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+        .padding(horizontal = 12.dp, vertical = 10.dp)
+
+    if (needsStackedLayout) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = rowModifier
+        ) {
+            Text(
+                text = label,
+                color = Charcoal.copy(alpha = 0.72f),
+                fontSize = 13.sp
+            )
+            Text(
+                text = displayValue,
+                color = if (isMissing) Charcoal.copy(alpha = 0.58f) else Teal,
+                fontSize = if (isMissing) 14.sp else 17.sp,
+                fontWeight = if (isMissing) FontWeight.SemiBold else FontWeight.Bold,
+                textAlign = TextAlign.End,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        return
+    }
+
     Row(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .background(SoftMint.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+        modifier = rowModifier
     ) {
         Text(
             text = label,

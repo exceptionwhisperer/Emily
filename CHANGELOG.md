@@ -21,6 +21,7 @@ Saved on July 29, 2026.
 - Refocused the app direction around Coach and Data Review, including renaming the Data tab to Review.
 - Reworked the Review tab to show recovery first and hide empty Workout/Weight cards until data exists.
 - Tightened Review row spacing so `No data` values are smaller, calmer, and better aligned.
+- Fixed long Review values so rows stack instead of crushing labels on narrow phone screens.
 
 ### Added
 
