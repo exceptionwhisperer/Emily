@@ -802,7 +802,8 @@ private fun ImportedDataRow(
             text = if (unit.isBlank() || value == "No data") value else "$value $unit",
             color = Teal,
             fontSize = 17.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 8.dp)
         )
     }
 }
