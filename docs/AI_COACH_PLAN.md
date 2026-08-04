@@ -83,3 +83,5 @@ The first backend now lives in `backend/`. It exposes:
 The next implementation step is wiring the Android app's **Create Coach Summary** button to call this backend instead of only creating a local prompt.
 
 The Android app now has a dedicated **ChatGPT coach response** card. That card should display the backend's plain-language response plus the small next-step suggestions that Emily Coach returns.
+
+Before paid OpenAI calls are enabled, the app should support **fake data test mode**. Fake mode lets Troy test the coach page, suggested questions, response card, and token/cost display without calling OpenAI or spending API credit. When the backend connection is wired, the same UI should switch from fake responses to `POST /api/coach` responses and use the real `usage` token fields returned by OpenAI.

@@ -4,6 +4,13 @@
 
 Saved on July 29, 2026.
 
+### Latest Milestone
+
+- Added fake data test mode for Emily Coach so the coach flow can be tested without OpenAI billing.
+- Added suggested coach questions and a custom question field.
+- Added session usage tracking for coach requests, estimated input tokens, estimated output tokens, and cost display.
+- Added fake coach responses that use the current health numbers and trend summary.
+
 ### Added
 
 - Native Android starter app built with Kotlin and Jetpack Compose.

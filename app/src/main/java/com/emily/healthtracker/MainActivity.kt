@@ -198,6 +198,12 @@ private fun HealthTrackerScreen() {
     var coachInsight by remember { mutableStateOf("Import or enter today's numbers, then ask Emily Coach for a plain-language summary.") }
     var chatGptCoachResponse by remember { mutableStateOf("") }
     var chatGptSuggestions by remember { mutableStateOf(listOf<String>()) }
+    var coachQuestion by remember { mutableStateOf("") }
+    var lastCoachQuestion by remember { mutableStateOf("") }
+    var fakeCoachMode by remember { mutableStateOf(true) }
+    var coachRequestCount by remember { mutableStateOf(0) }
+    var coachInputTokens by remember { mutableStateOf(0) }
+    var coachOutputTokens by remember { mutableStateOf(0) }
     var includeSteps by remember { mutableStateOf(true) }
     var includeSleep by remember { mutableStateOf(true) }
     var includeHeartRate by remember { mutableStateOf(true) }
@@ -277,6 +283,58 @@ private fun HealthTrackerScreen() {
         steps = steps.toIntOrNull() ?: 0,
         mood = mood
     )
+    fun currentCoachPayload(): String {
+        return buildCoachInsight(
+            wellnessScore = wellnessScore,
+            sleepHours = sleepHours,
+            steps = steps,
+            mood = mood.roundToInt(),
+            symptoms = symptoms,
+            medications = medications,
+            notes = notes,
+            trendSummary = trendSummary,
+            heartRate = heartRate,
+            restingHeartRate = restingHeartRate,
+            activeCalories = activeCalories,
+            exerciseMinutes = exerciseMinutes,
+            workoutTypes = workoutTypes,
+            weightPounds = weightPounds,
+            selectedHealthData = selectedHealthData,
+            recentEntries = entries.take(5)
+        )
+    }
+    fun askCoach(question: String) {
+        val cleanQuestion = question.ifBlank { "What trends do you see in my health numbers today?" }
+        val payload = currentCoachPayload()
+        coachInsight = payload
+        lastCoachQuestion = cleanQuestion
+        coachRequestCount += 1
+
+        if (fakeCoachMode) {
+            val fakeResponse = buildFakeCoachResponse(
+                question = cleanQuestion,
+                wellnessScore = wellnessScore,
+                sleepHours = sleepHours,
+                steps = steps,
+                restingHeartRate = restingHeartRate,
+                exerciseMinutes = exerciseMinutes,
+                workoutTypes = workoutTypes,
+                mood = mood.roundToInt(),
+                trendSummary = trendSummary
+            )
+            chatGptCoachResponse = fakeResponse.response
+            chatGptSuggestions = fakeResponse.suggestions
+            coachInputTokens += estimateTokens(payload)
+            coachOutputTokens += estimateTokens(fakeResponse.response + fakeResponse.suggestions.joinToString())
+        } else {
+            chatGptCoachResponse = "Backend mode is selected, but the Android-to-backend connection is not wired yet. Switch Fake data test mode back on for free testing."
+            chatGptSuggestions = listOf(
+                "Start the backend after adding your API key.",
+                "Wire this button to POST /api/coach.",
+                "Save token usage from the backend response."
+            )
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -514,24 +572,7 @@ private fun HealthTrackerScreen() {
             EmilyCoachCard(
                 insight = coachInsight,
                 onGenerateInsight = {
-                    coachInsight = buildCoachInsight(
-                        wellnessScore = wellnessScore,
-                        sleepHours = sleepHours,
-                        steps = steps,
-                        mood = mood.roundToInt(),
-                        symptoms = symptoms,
-                        medications = medications,
-                        notes = notes,
-                        trendSummary = trendSummary,
-                        heartRate = heartRate,
-                        restingHeartRate = restingHeartRate,
-                        activeCalories = activeCalories,
-                        exerciseMinutes = exerciseMinutes,
-                        workoutTypes = workoutTypes,
-                        weightPounds = weightPounds,
-                        selectedHealthData = selectedHealthData,
-                        recentEntries = entries.take(5)
-                    )
+                    coachInsight = currentCoachPayload()
                     chatGptCoachResponse = "Coach summary is ready for ChatGPT. Backend connection is the next step."
                     chatGptSuggestions = listOf(
                         "Use this card for ChatGPT's health-number explanation.",
@@ -542,9 +583,35 @@ private fun HealthTrackerScreen() {
         }
 
         item {
+            CoachConversationCard(
+                fakeCoachMode = fakeCoachMode,
+                onFakeCoachModeChange = { fakeCoachMode = it },
+                question = coachQuestion,
+                onQuestionChange = { coachQuestion = it },
+                lastQuestion = lastCoachQuestion,
+                suggestedQuestions = suggestedCoachQuestions,
+                onAskQuestion = { selectedQuestion ->
+                    askCoach(selectedQuestion)
+                    if (selectedQuestion == coachQuestion) {
+                        coachQuestion = ""
+                    }
+                }
+            )
+        }
+
+        item {
             ChatGptCoachResponseCard(
                 response = chatGptCoachResponse,
                 suggestions = chatGptSuggestions
+            )
+        }
+
+        item {
+            CoachUsageCard(
+                fakeCoachMode = fakeCoachMode,
+                requestCount = coachRequestCount,
+                inputTokens = coachInputTokens,
+                outputTokens = coachOutputTokens
             )
         }
 
@@ -798,6 +865,96 @@ private fun EmilyCoachCard(
 }
 
 @Composable
+private fun CoachConversationCard(
+    fakeCoachMode: Boolean,
+    onFakeCoachModeChange: (Boolean) -> Unit,
+    question: String,
+    onQuestionChange: (String) -> Unit,
+    lastQuestion: String,
+    suggestedQuestions: List<String>,
+    onAskQuestion: (String) -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Ask Emily Coach",
+                        color = Charcoal,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (fakeCoachMode) "Fake data test mode: no OpenAI cost" else "Backend mode: may use your OpenAI account",
+                        color = if (fakeCoachMode) Teal else Coral,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Checkbox(
+                    checked = fakeCoachMode,
+                    onCheckedChange = onFakeCoachModeChange
+                )
+            }
+            Text(
+                text = "Try a suggested question or type your own. Later this same card will call the backend.",
+                color = Charcoal.copy(alpha = 0.72f)
+            )
+            suggestedQuestions.forEach { suggestedQuestion ->
+                Button(
+                    onClick = { onAskQuestion(suggestedQuestion) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SoftMint,
+                        contentColor = Charcoal
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(suggestedQuestion)
+                }
+            }
+            OutlinedTextField(
+                value = question,
+                onValueChange = onQuestionChange,
+                label = { Text("Ask your own coach question") },
+                minLines = 2,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Button(
+                onClick = { onAskQuestion(question) },
+                enabled = question.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = Teal),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text("Ask ChatGPT Coach")
+            }
+            if (lastQuestion.isNotBlank()) {
+                Text(
+                    text = "Last question: $lastQuestion",
+                    color = Charcoal.copy(alpha = 0.68f),
+                    fontSize = 13.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ChatGptCoachResponseCard(
     response: String,
     suggestions: List<String>
@@ -856,6 +1013,57 @@ private fun ChatGptCoachResponseCard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CoachUsageCard(
+    fakeCoachMode: Boolean,
+    requestCount: Int,
+    inputTokens: Int,
+    outputTokens: Int
+) {
+    val estimatedCost = if (fakeCoachMode) 0.0 else estimateCoachCostDollars(inputTokens, outputTokens)
+    Card(
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Coach usage",
+                    color = Charcoal,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = if (fakeCoachMode) "\$0.00" else "\$${String.format(Locale.US, "%.4f", estimatedCost)}",
+                    color = if (fakeCoachMode) Teal else Coral,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            ImportedDataRow(label = "Coach requests this session", value = requestCount.toString())
+            ImportedDataRow(label = "Estimated input tokens", value = inputTokens.toString())
+            ImportedDataRow(label = "Estimated output tokens", value = outputTokens.toString())
+            Text(
+                text = if (fakeCoachMode) {
+                    "Fake data test mode does not call OpenAI. These token numbers are only practice estimates."
+                } else {
+                    "Backend mode will use real usage values returned by OpenAI after the connection is wired."
+                },
+                color = Charcoal.copy(alpha = 0.68f),
+                fontSize = 13.sp
+            )
         }
     }
 }
@@ -1195,6 +1403,70 @@ private fun buildCoachInsight(
     """.trimIndent()
 }
 
+private fun buildFakeCoachResponse(
+    question: String,
+    wellnessScore: Int,
+    sleepHours: String,
+    steps: String,
+    restingHeartRate: String,
+    exerciseMinutes: String,
+    workoutTypes: String,
+    mood: Int,
+    trendSummary: String
+): FakeCoachResponse {
+    val stepCount = steps.toIntOrNull() ?: 0
+    val sleep = sleepHours.toFloatOrNull() ?: 0f
+    val movementText = when {
+        stepCount >= 8000 -> "Your movement looks strong today at $steps steps."
+        stepCount >= 4000 -> "Your movement is moderate today at $steps steps."
+        else -> "Your movement looks light today at ${steps.ifBlank { "0" }} steps."
+    }
+    val sleepText = when {
+        sleep >= 7f -> "Sleep is in a solid range at ${sleepHours.ifBlank { "0" }} hours."
+        sleep >= 6f -> "Sleep is close, but a little more recovery time may help."
+        else -> "Sleep looks like the first area to protect."
+    }
+    val heartText = if (restingHeartRate.isBlank()) {
+        "Resting heart rate was not found for today."
+    } else {
+        "Resting heart rate is showing as $restingHeartRate bpm today."
+    }
+    val workoutText = if (exerciseMinutes.isBlank()) {
+        "No workout minutes were imported yet."
+    } else {
+        "Workout time is $exerciseMinutes minutes, with types listed as $workoutTypes."
+    }
+
+    return FakeCoachResponse(
+        response = """
+            Fake Emily Coach response
+            
+            Question: $question
+            
+            Health number: $wellnessScore. $sleepText $movementText $heartText $workoutText Mood is $mood/10.
+            
+            Trend view: $trendSummary
+            
+            This is test-mode guidance only. The paid OpenAI connection is not being used yet.
+        """.trimIndent(),
+        suggestions = listOf(
+            if (sleep < 7f) "Protect an earlier bedtime or a calmer wind-down tonight." else "Keep sleep timing steady tonight.",
+            if (stepCount < 6000) "Try a short easy walk if you feel up to it." else "Keep movement steady without overdoing it.",
+            if (restingHeartRate.isBlank()) "Import resting heart rate again after Health Connect has today's data." else "Watch whether resting heart rate stays near your normal baseline."
+        )
+    )
+}
+
+private fun estimateTokens(text: String): Int {
+    return (text.length / 4).coerceAtLeast(1)
+}
+
+private fun estimateCoachCostDollars(inputTokens: Int, outputTokens: Int): Double {
+    val inputCost = inputTokens / 1_000_000.0 * 2.50
+    val outputCost = outputTokens / 1_000_000.0 * 15.00
+    return inputCost + outputCost
+}
+
 private suspend fun readHealthConnectData(
     healthConnectClient: HealthConnectClient,
     selectedHealthData: SelectedHealthData
@@ -1438,6 +1710,11 @@ private data class ImportedHealthMetrics(
     val workoutTypesSummary: String
 )
 
+private data class FakeCoachResponse(
+    val response: String,
+    val suggestions: List<String>
+)
+
 private data class SelectedHealthData(
     val includeSteps: Boolean,
     val includeSleep: Boolean,
@@ -1550,6 +1827,13 @@ private val SoftCoral = Color(0xFFFFE8DF)
 private val Teal = Color(0xFF247C76)
 private val Coral = Color(0xFFE96F5F)
 private val Charcoal = Color(0xFF24302F)
+
+private val suggestedCoachQuestions = listOf(
+    "What trends do you see today?",
+    "What should I focus on tomorrow?",
+    "Is my resting heart rate changing?",
+    "How did my workout affect recovery?"
+)
 
 @Preview(showBackground = true)
 @Composable
