@@ -344,6 +344,30 @@ private fun HealthTrackerScreen() {
             )
         }
     }
+    fun fillFakeHealthData() {
+        sleepHours = "7.4"
+        steps = "9420"
+        heartRate = "78"
+        restingHeartRate = "67"
+        activeCalories = "426"
+        exerciseMinutes = "48"
+        workoutTypes = "Walking x3, Strength training x1"
+        weightPounds = "168.4"
+        mood = 8f
+        symptoms = "Mild shoulder tightness after workout."
+        medications = "Morning vitamins logged."
+        notes = "Good energy today. Testing Emily with fake sample data."
+        trendSummary = "7-day trend: 8120 steps/day, 7.1 sleep hours/day, 38 exercise min/day, 390 active calories/day, 76 bpm average heart rate, 68 bpm resting heart rate. Today's resting heart rate is 67 bpm, 1 below your 7-day average. Workout types this week: Walking x3, Strength training x1. Today: 9420 steps and 7.4 sleep hours."
+        coachInsight = "Fake health data has been filled in. Go to Data, Coach, or Trend to test the cards."
+        chatGptCoachResponse = "Fake Emily Coach response is ready. This did not call OpenAI and did not use tokens."
+        chatGptSuggestions = listOf(
+            "Check the Trend tab to see the fake 7-day summary.",
+            "Use the Coach tab to ask a fake-mode question.",
+            "Keep Fake data test mode checked to avoid OpenAI cost."
+        )
+        fakeCoachMode = true
+        healthConnectMessage = "Fake test data filled. Health Connect was not used for this sample."
+    }
 
     Scaffold(
         containerColor = Cream,
@@ -435,6 +459,11 @@ private fun HealthTrackerScreen() {
                             }
                         }
                     }
+                )
+            }
+            item {
+                FakeDataTestCard(
+                    onFillFakeData = { fillFakeHealthData() }
                 )
             }
         }
@@ -1240,6 +1269,44 @@ private fun HealthConnectCard(
                     .height(50.dp)
             ) {
                 Text("Import Today")
+            }
+        }
+    }
+}
+
+@Composable
+private fun FakeDataTestCard(
+    onFillFakeData: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Testing",
+                color = Charcoal,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Fill Emily with fake sample data. This does not use Health Connect, OpenAI, tokens, or money.",
+                color = Charcoal.copy(alpha = 0.72f)
+            )
+            Button(
+                onClick = onFillFakeData,
+                colors = ButtonDefaults.buttonColors(containerColor = Coral),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text("Fill Fake Data")
             }
         }
     }
