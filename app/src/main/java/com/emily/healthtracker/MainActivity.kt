@@ -194,6 +194,10 @@ private fun HealthTrackerScreen() {
     var steps by remember { mutableStateOf("4200") }
     var heartRate by remember { mutableStateOf("") }
     var restingHeartRate by remember { mutableStateOf("") }
+    var latestHeartRate by remember { mutableStateOf("") }
+    var minHeartRate by remember { mutableStateOf("") }
+    var maxHeartRate by remember { mutableStateOf("") }
+    var heartRateSamples by remember { mutableStateOf("") }
     var activeCalories by remember { mutableStateOf("") }
     var exerciseMinutes by remember { mutableStateOf("") }
     var workoutTypes by remember { mutableStateOf("No workout types imported yet.") }
@@ -304,6 +308,10 @@ private fun HealthTrackerScreen() {
             trendSummary = trendSummary,
             heartRate = heartRate,
             restingHeartRate = restingHeartRate,
+            latestHeartRate = latestHeartRate,
+            minHeartRate = minHeartRate,
+            maxHeartRate = maxHeartRate,
+            heartRateSamples = heartRateSamples,
             activeCalories = activeCalories,
             exerciseMinutes = exerciseMinutes,
             workoutTypes = workoutTypes,
@@ -325,7 +333,12 @@ private fun HealthTrackerScreen() {
                 wellnessScore = wellnessScore,
                 sleepHours = sleepHours,
                 steps = steps,
+                heartRate = heartRate,
                 restingHeartRate = restingHeartRate,
+                latestHeartRate = latestHeartRate,
+                minHeartRate = minHeartRate,
+                maxHeartRate = maxHeartRate,
+                heartRateSamples = heartRateSamples,
                 exerciseMinutes = exerciseMinutes,
                 workoutTypes = workoutTypes,
                 mood = mood.roundToInt(),
@@ -349,6 +362,10 @@ private fun HealthTrackerScreen() {
         steps = "9420"
         heartRate = "78"
         restingHeartRate = "67"
+        latestHeartRate = "74"
+        minHeartRate = "58"
+        maxHeartRate = "132"
+        heartRateSamples = "96"
         activeCalories = "426"
         exerciseMinutes = "48"
         workoutTypes = "Walking x3, Strength training x1"
@@ -357,7 +374,7 @@ private fun HealthTrackerScreen() {
         symptoms = "Mild shoulder tightness after workout."
         medications = "Morning vitamins logged."
         notes = "Good energy today. Testing Emily with fake sample data."
-        trendSummary = "7-day trend: 8120 steps/day, 7.1 sleep hours/day, 38 exercise min/day, 390 active calories/day, 76 bpm average heart rate, 68 bpm resting heart rate. Today's resting heart rate is 67 bpm, 1 below your 7-day average. Workout types this week: Walking x3, Strength training x1. Today: 9420 steps and 7.4 sleep hours."
+        trendSummary = "7-day trend: 8120 steps/day, 7.1 sleep hours/day, 38 exercise min/day, 390 active calories/day, 76 bpm average heart rate, 68 bpm resting heart rate, heart range 58-132 bpm, 96 heart samples. Today's resting heart rate is 67 bpm, 1 below your 7-day average. Latest heart rate today is 74 bpm. Workout types this week: Walking x3, Strength training x1. Today: 9420 steps and 7.4 sleep hours."
         coachInsight = "Fake health data has been filled in. Go to Data, Coach, or Trend to test the cards."
         chatGptCoachResponse = "Fake Emily Coach response is ready. This did not call OpenAI and did not use tokens."
         chatGptSuggestions = listOf(
@@ -436,6 +453,13 @@ private fun HealthTrackerScreen() {
                                 if (importableData.includeHeartRate) {
                                     heartRate = importedData.today.averageHeartRate?.toString().orEmpty()
                                     restingHeartRate = importedData.today.restingHeartRate?.toString().orEmpty()
+                                    latestHeartRate = importedData.today.latestHeartRate?.toString().orEmpty()
+                                    minHeartRate = importedData.today.minHeartRate?.toString().orEmpty()
+                                    maxHeartRate = importedData.today.maxHeartRate?.toString().orEmpty()
+                                    heartRateSamples = importedData.today.heartRateSampleCount
+                                        ?.takeIf { it > 0 }
+                                        ?.toString()
+                                        .orEmpty()
                                 }
                                 if (importableData.includeActiveCalories) {
                                     activeCalories = importedData.today.activeCalories
@@ -499,6 +523,10 @@ private fun HealthTrackerScreen() {
                     if (!it) {
                         heartRate = ""
                         restingHeartRate = ""
+                        latestHeartRate = ""
+                        minHeartRate = ""
+                        maxHeartRate = ""
+                        heartRateSamples = ""
                     }
                 },
                 includeActiveCalories = includeActiveCalories,
@@ -546,9 +574,28 @@ private fun HealthTrackerScreen() {
                             unit = "bpm"
                         )
                         ImportedDataRow(
+                            label = "Latest heart rate",
+                            value = latestHeartRate.ifBlank { "No data" },
+                            unit = "bpm"
+                        )
+                        ImportedDataRow(
                             label = "Resting heart rate today",
                             value = restingHeartRate.ifBlank { "No data" },
                             unit = "bpm"
+                        )
+                        ImportedDataRow(
+                            label = "Low heart rate today",
+                            value = minHeartRate.ifBlank { "No data" },
+                            unit = "bpm"
+                        )
+                        ImportedDataRow(
+                            label = "High heart rate today",
+                            value = maxHeartRate.ifBlank { "No data" },
+                            unit = "bpm"
+                        )
+                        ImportedDataRow(
+                            label = "Heart samples today",
+                            value = heartRateSamples.ifBlank { "No data" }
                         )
                     }
                 }
@@ -1543,6 +1590,10 @@ private fun buildCoachInsight(
     trendSummary: String,
     heartRate: String,
     restingHeartRate: String,
+    latestHeartRate: String,
+    minHeartRate: String,
+    maxHeartRate: String,
+    heartRateSamples: String,
     activeCalories: String,
     exerciseMinutes: String,
     workoutTypes: String,
@@ -1579,7 +1630,7 @@ private fun buildCoachInsight(
         
         User-selected data types: $selectedDataSummary.
         Data used: $sleepHours hours sleep, $steps steps, mood $mood/10.
-        Heart/activity: ${heartRate.ifBlank { "no heart rate data" }} bpm avg, ${restingHeartRate.ifBlank { "no resting heart rate data" }} bpm resting, ${exerciseMinutes.ifBlank { "0" }} exercise minutes, ${activeCalories.ifBlank { "0" }} active calories.
+        Heart/activity: ${heartRate.ifBlank { "no heart rate data" }} bpm avg, ${latestHeartRate.ifBlank { "no latest heart rate data" }} bpm latest, ${restingHeartRate.ifBlank { "no resting heart rate data" }} bpm resting, ${minHeartRate.ifBlank { "no low heart rate data" }} bpm low, ${maxHeartRate.ifBlank { "no high heart rate data" }} bpm high, ${heartRateSamples.ifBlank { "0" }} heart samples, ${exerciseMinutes.ifBlank { "0" }} exercise minutes, ${activeCalories.ifBlank { "0" }} active calories.
         Workout types: $workoutTypes
         Weight: ${weightPounds.ifBlank { "no weight data" }} lb.
         Symptoms: $symptomLine
@@ -1595,7 +1646,12 @@ private fun buildFakeCoachResponse(
     wellnessScore: Int,
     sleepHours: String,
     steps: String,
+    heartRate: String,
     restingHeartRate: String,
+    latestHeartRate: String,
+    minHeartRate: String,
+    maxHeartRate: String,
+    heartRateSamples: String,
     exerciseMinutes: String,
     workoutTypes: String,
     mood: Int,
@@ -1613,10 +1669,10 @@ private fun buildFakeCoachResponse(
         sleep >= 6f -> "Sleep is close, but a little more recovery time may help."
         else -> "Sleep looks like the first area to protect."
     }
-    val heartText = if (restingHeartRate.isBlank()) {
-        "Resting heart rate was not found for today."
+    val heartText = if (heartRate.isBlank() && restingHeartRate.isBlank() && latestHeartRate.isBlank()) {
+        "Heart data was not found for today."
     } else {
-        "Resting heart rate is showing as $restingHeartRate bpm today."
+        "Heart today shows avg ${heartRate.ifBlank { "no avg" }}, latest ${latestHeartRate.ifBlank { "no latest" }}, resting ${restingHeartRate.ifBlank { "no resting" }}, low ${minHeartRate.ifBlank { "no low" }}, high ${maxHeartRate.ifBlank { "no high" }}, from ${heartRateSamples.ifBlank { "0" }} samples."
     }
     val workoutText = if (exerciseMinutes.isBlank()) {
         "No workout minutes were imported yet."
@@ -1639,7 +1695,8 @@ private fun buildFakeCoachResponse(
         suggestions = listOf(
             if (sleep < 7f) "Protect an earlier bedtime or a calmer wind-down tonight." else "Keep sleep timing steady tonight.",
             if (stepCount < 6000) "Try a short easy walk if you feel up to it." else "Keep movement steady without overdoing it.",
-            if (restingHeartRate.isBlank()) "Import resting heart rate again after Health Connect has today's data." else "Watch whether resting heart rate stays near your normal baseline."
+            if (restingHeartRate.isBlank()) "Import resting heart rate again after Health Connect has today's data." else "Watch whether resting heart rate stays near your normal baseline.",
+            if (minHeartRate.isBlank() || maxHeartRate.isBlank()) "Import heart rate samples to see today's low and high range." else "Use the low-to-high heart range as context for workout intensity and recovery."
         )
     )
 }
@@ -1728,12 +1785,25 @@ private suspend fun readHealthMetrics(
     } else {
         null
     }
+    val heartRateResponse = if (selectedHealthData.includeHeartRate) {
+        healthConnectClient.readRecords(
+            ReadRecordsRequest(
+                recordType = HeartRateRecord::class,
+                timeRangeFilter = timeRangeFilter
+            )
+        )
+    } else {
+        null
+    }
 
     val sleepMinutes = sleepResponse?.records?.sumOf { sleepRecord ->
         Duration.between(sleepRecord.startTime, sleepRecord.endTime).toMinutes()
     }
     val workoutTypesSummary = exerciseResponse?.records?.let { summarizeWorkoutTypes(it) }
         ?: "Workout data not selected"
+    val heartRateSamples = heartRateResponse?.records
+        ?.flatMap { heartRateRecord -> heartRateRecord.samples }
+        .orEmpty()
 
     return ImportedHealthMetrics(
         steps = aggregateResponse?.get(StepsRecord.COUNT_TOTAL),
@@ -1742,6 +1812,10 @@ private suspend fun readHealthMetrics(
         exerciseMinutes = aggregateResponse?.get(ExerciseSessionRecord.EXERCISE_DURATION_TOTAL)?.toMinutes(),
         averageHeartRate = aggregateResponse?.get(HeartRateRecord.BPM_AVG),
         restingHeartRate = aggregateResponse?.get(RestingHeartRateRecord.BPM_AVG),
+        latestHeartRate = heartRateSamples.maxByOrNull { sample -> sample.time }?.beatsPerMinute,
+        minHeartRate = heartRateSamples.minOfOrNull { sample -> sample.beatsPerMinute },
+        maxHeartRate = heartRateSamples.maxOfOrNull { sample -> sample.beatsPerMinute },
+        heartRateSampleCount = heartRateSamples.size.takeIf { count -> count > 0 },
         workoutTypesSummary = workoutTypesSummary
     )
 }
@@ -1775,6 +1849,14 @@ private fun buildTrendSummary(
     val heartRateText = week.averageHeartRate?.let { "$it bpm average heart rate" } ?: "no heart rate average"
     val restingHeartRateText = week.restingHeartRate?.let { "$it bpm resting heart rate" }
         ?: "no resting heart rate average"
+    val heartRangeText = if (week.minHeartRate != null && week.maxHeartRate != null) {
+        "heart range ${week.minHeartRate}-${week.maxHeartRate} bpm"
+    } else {
+        "no heart rate range"
+    }
+    val heartSamplesText = week.heartRateSampleCount?.let { "$it heart samples" } ?: "no heart samples"
+    val latestHeartRateText = today.latestHeartRate?.let { "Latest heart rate today is $it bpm." }
+        ?: "Latest heart rate today was not found."
     val restingHeartRateChangeText = restingHeartRateChangeText(today.restingHeartRate, week.restingHeartRate)
     val calorieText = dailyAverageCalories?.let { "${it.roundToInt()} active calories/day" }
         ?: "no active calorie average"
@@ -1785,8 +1867,9 @@ private fun buildTrendSummary(
     val todaySleepText = today.sleepMinutes?.let { "${formatHours(it)} sleep hours" } ?: "sleep not selected"
 
     return "7-day trend: $stepsText, $sleepText, " +
-        "$exerciseText, $calorieText, $heartRateText, $restingHeartRateText. " +
+        "$exerciseText, $calorieText, $heartRateText, $restingHeartRateText, $heartRangeText, $heartSamplesText. " +
         "$restingHeartRateChangeText " +
+        "$latestHeartRateText " +
         "Workout types this week: ${week.workoutTypesSummary}. " +
         "Today: $todayStepsText and $todaySleepText."
 }
@@ -1914,6 +1997,10 @@ private data class ImportedHealthMetrics(
     val exerciseMinutes: Long?,
     val averageHeartRate: Long?,
     val restingHeartRate: Long?,
+    val latestHeartRate: Long?,
+    val minHeartRate: Long?,
+    val maxHeartRate: Long?,
+    val heartRateSampleCount: Int?,
     val workoutTypesSummary: String
 )
 
