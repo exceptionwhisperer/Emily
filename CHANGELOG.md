@@ -28,6 +28,7 @@ Saved on July 29, 2026.
 - Left-aligned stacked Review values so HRV change reads like a clear statement.
 - Right-aligned stacked numeric Review values while keeping long text Review values left-aligned.
 - Added workout session review rows with workout type, minutes, and highest heart rate during each session.
+- Changed suggested Emily Coach questions to load into the question box before sending.
 
 ### Added
 

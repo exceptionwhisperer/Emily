@@ -1208,12 +1208,12 @@ private fun CoachConversationCard(
                 )
             }
             Text(
-                text = "Try a suggested question or type your own. Later this same card will call the backend.",
+                text = "Tap a suggested question to load it, then edit it or send it.",
                 color = Charcoal.copy(alpha = 0.72f)
             )
             suggestedQuestions.forEach { suggestedQuestion ->
                 Button(
-                    onClick = { onAskQuestion(suggestedQuestion) },
+                    onClick = { onQuestionChange(suggestedQuestion) },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = SoftMint,
                         contentColor = Charcoal
