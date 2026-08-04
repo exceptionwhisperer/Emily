@@ -12,6 +12,7 @@ import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -236,6 +237,8 @@ private fun HealthTrackerScreen() {
     var includeWeight by remember { mutableStateOf(false) }
     var isDataSelectionExpanded by remember { mutableStateOf(false) }
     var selectedSection by remember { mutableStateOf(AppSection.Home) }
+    var debugTapCount by remember { mutableStateOf(0) }
+    var isDebugUnlocked by remember { mutableStateOf(false) }
     val entries = remember { mutableStateListOf<HealthEntry>() }
     val context = androidx.compose.ui.platform.LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -447,6 +450,7 @@ private fun HealthTrackerScreen() {
         bottomBar = {
             EmilyBottomNavigation(
                 selectedSection = selectedSection,
+                showDebug = isDebugUnlocked,
                 onSectionSelected = { selectedSection = it }
             )
         }
@@ -839,6 +843,21 @@ private fun HealthTrackerScreen() {
             }
         }
 
+        if (selectedSection == AppSection.Debug && isDebugUnlocked) {
+            item {
+                EmilyDebugCard(
+                    fakeCoachMode = fakeCoachMode,
+                    healthConnectStatus = healthConnectMessage,
+                    selectedHealthData = selectedHealthData,
+                    hasHealthConnectPermission = hasHealthConnectPermission,
+                    coachRequestCount = coachRequestCount,
+                    coachInputTokens = coachInputTokens,
+                    coachOutputTokens = coachOutputTokens,
+                    currentCoachPayload = currentCoachPayload()
+                )
+            }
+        }
+
         if (selectedSection == AppSection.Data) {
             item {
             Button(
@@ -896,7 +915,19 @@ private fun HealthTrackerScreen() {
         }
 
         item {
-            VersionFooter()
+            VersionFooter(
+                isDebugUnlocked = isDebugUnlocked,
+                onVersionTap = {
+                    if (!isDebugUnlocked) {
+                        val nextTapCount = debugTapCount + 1
+                        debugTapCount = nextTapCount
+                        if (nextTapCount >= 6) {
+                            isDebugUnlocked = true
+                            selectedSection = AppSection.Debug
+                        }
+                    }
+                }
+            )
             Spacer(modifier = Modifier.height(18.dp))
         }
     }
@@ -906,10 +937,13 @@ private fun HealthTrackerScreen() {
 @Composable
 private fun EmilyBottomNavigation(
     selectedSection: AppSection,
+    showDebug: Boolean,
     onSectionSelected: (AppSection) -> Unit
 ) {
     NavigationBar(containerColor = Color.White) {
-        AppSection.entries.forEach { section ->
+        AppSection.entries
+            .filter { section -> showDebug || section != AppSection.Debug }
+            .forEach { section ->
             NavigationBarItem(
                 selected = selectedSection == section,
                 onClick = { onSectionSelected(section) },
@@ -927,13 +961,21 @@ private fun EmilyBottomNavigation(
 }
 
 @Composable
-private fun VersionFooter() {
+private fun VersionFooter(
+    isDebugUnlocked: Boolean,
+    onVersionTap: () -> Unit
+) {
     Text(
-        text = "Emily ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+        text = if (isDebugUnlocked) {
+            "Emily ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) - Debug unlocked"
+        } else {
+            "Emily ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+        },
         color = Charcoal.copy(alpha = 0.58f),
         fontSize = 12.sp,
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onVersionTap)
             .padding(vertical = 8.dp)
     )
 }
@@ -1512,6 +1554,61 @@ private fun EmilyProfileCard(
             ) {
                 Text("Save Profile", fontWeight = FontWeight.Bold)
             }
+        }
+    }
+}
+
+@Composable
+private fun EmilyDebugCard(
+    fakeCoachMode: Boolean,
+    healthConnectStatus: String,
+    selectedHealthData: SelectedHealthData,
+    hasHealthConnectPermission: Boolean,
+    coachRequestCount: Int,
+    coachInputTokens: Int,
+    coachOutputTokens: Int,
+    currentCoachPayload: String
+) {
+    Card(
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Debug",
+                color = Charcoal,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+            ImportedDataRow(label = "OpenAI backend", value = "Not wired yet")
+            ImportedDataRow(label = "Coach mode", value = if (fakeCoachMode) "Fake, no cost" else "Backend")
+            ImportedDataRow(label = "Health Connect permission", value = if (hasHealthConnectPermission) "Granted" else "Needs check")
+            ImportedDataRow(label = "Selected data", value = selectedHealthData.summaryLabel())
+            ImportedDataRow(label = "Coach requests", value = coachRequestCount.toString())
+            ImportedDataRow(label = "Input tokens", value = coachInputTokens.toString())
+            ImportedDataRow(label = "Output tokens", value = coachOutputTokens.toString())
+            Text(
+                text = "Health Connect status",
+                color = Charcoal,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+            BulletTextList(text = healthConnectStatus)
+            Text(
+                text = "Current coach payload preview",
+                color = Charcoal,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+            BulletTextList(
+                text = currentCoachPayload,
+                fontSize = 13
+            )
         }
     }
 }
@@ -2538,7 +2635,8 @@ private enum class AppSection(
     Data(label = "Review", icon = "▦"),
     Coach(label = "Coach", icon = "?"),
     Trend(label = "Trend", icon = "?"),
-    Profile(label = "Profile", icon = "P")
+    Profile(label = "Profile", icon = "P"),
+    Debug(label = "Debug", icon = "D")
 }
 
 private fun loadHealthEntries(preferences: SharedPreferences): List<HealthEntry> {

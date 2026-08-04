@@ -10,6 +10,7 @@
 - Run the Emily Coach backend and test `GET /health`.
 - Test `POST /api/coach` with a sample health summary.
 - Wire the Android app's Create Coach Summary button to call the backend.
+- Use the hidden Debug tab to show backend health, last request payload, last response, token usage, and errors.
 - Fill the ChatGPT coach response card with the backend answer and suggestions.
 - Replace fake coach mode with the real backend call after OpenAI billing and API key setup are ready.
 - Store real token usage and estimated cost after each backend response.

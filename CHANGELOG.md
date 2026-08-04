@@ -30,6 +30,7 @@ Saved on July 29, 2026.
 - Added workout session review rows with workout type, minutes, and highest heart rate during each session.
 - Changed suggested Emily Coach questions to load into the question box before sending.
 - Added a local Emily Profile tab for AICD HR caution limit, workout HR goal, resting HR baseline, HRV baseline, and health context notes.
+- Added a hidden Debug tab unlocked by tapping the version footer six times for future OpenAI pipeline debugging.
 
 ### Added
 
