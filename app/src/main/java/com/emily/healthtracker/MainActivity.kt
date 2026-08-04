@@ -1671,6 +1671,11 @@ private fun buildCoachInsight(
     val symptomLine = symptoms.ifBlank { "No symptoms were entered for this check-in." }
     val medicationLine = medications.ifBlank { "No medication notes were entered for this check-in." }
     val noteLine = notes.ifBlank { "No extra notes were entered for this check-in." }
+    val recoveryTrend = recoveryTrendText(
+        restingHeartRate = restingHeartRate,
+        hrvToday = hrvToday,
+        hrvWeekAverage = hrvWeekAverage
+    )
 
     val selectedDataSummary = selectedHealthData.summaryLabel()
 
@@ -1684,13 +1689,14 @@ private fun buildCoachInsight(
         User-selected data types: $selectedDataSummary.
         Data used: $sleepHours hours sleep, $steps steps, mood $mood/10.
         Heart/activity: ${heartRate.ifBlank { "no heart rate data" }} bpm avg, ${latestHeartRate.ifBlank { "no latest heart rate data" }} bpm latest, ${restingHeartRate.ifBlank { "no resting heart rate data" }} bpm resting, ${minHeartRate.ifBlank { "no low heart rate data" }} bpm low, ${maxHeartRate.ifBlank { "no high heart rate data" }} bpm high, ${heartRateSamples.ifBlank { "0" }} heart samples, HRV ${hrvToday.ifBlank { "no HRV data" }} ms today, HRV ${hrvWeekAverage.ifBlank { "no HRV baseline" }} ms 7-day average, HRV change ${hrvChange.ifBlank { "not available" }}, ${hrvSamples.ifBlank { "0" }} HRV samples, ${exerciseMinutes.ifBlank { "0" }} exercise minutes, ${activeCalories.ifBlank { "0" }} active calories.
+        Recovery trend to explain first: $recoveryTrend
         Workout types: $workoutTypes
         Weight: ${weightPounds.ifBlank { "no weight data" }} lb.
         Symptoms: $symptomLine
         Medications: $medicationLine
         Notes: $noteLine
         
-        ChatGPT should explain patterns, ask one helpful follow-up question, and suggest small non-medical next steps. It should not diagnose, prescribe, or replace a clinician.
+        ChatGPT should explain the HRV and resting heart rate recovery trend first, then explain other patterns, ask one helpful follow-up question, and suggest small non-medical next steps. It should not diagnose, prescribe, or replace a clinician.
     """.trimIndent()
 }
 
@@ -1731,6 +1737,11 @@ private fun buildFakeCoachResponse(
     } else {
         "Heart today shows avg ${heartRate.ifBlank { "no avg" }}, latest ${latestHeartRate.ifBlank { "no latest" }}, resting ${restingHeartRate.ifBlank { "no resting" }}, low ${minHeartRate.ifBlank { "no low" }}, high ${maxHeartRate.ifBlank { "no high" }}, from ${heartRateSamples.ifBlank { "0" }} samples. HRV is ${hrvToday.ifBlank { "no HRV today" }} ms today versus ${hrvWeekAverage.ifBlank { "no baseline" }} ms baseline, change ${hrvChange.ifBlank { "not available" }}, from ${hrvSamples.ifBlank { "0" }} HRV samples."
     }
+    val recoveryTrend = recoveryTrendText(
+        restingHeartRate = restingHeartRate,
+        hrvToday = hrvToday,
+        hrvWeekAverage = hrvWeekAverage
+    )
     val workoutText = if (exerciseMinutes.isBlank()) {
         "No workout minutes were imported yet."
     } else {
@@ -1742,6 +1753,8 @@ private fun buildFakeCoachResponse(
             Fake Emily Coach response
             
             Question: $question
+            
+            Recovery trend: $recoveryTrend
             
             Health number: $wellnessScore. $sleepText $movementText $heartText $workoutText Mood is $mood/10.
             
@@ -1972,6 +1985,39 @@ private fun hrvChangeText(
     }
 
     return "Latest HRV today is ${formatOneDecimal(todayHrvMillis)} ms, $direction your 7-day average."
+}
+
+private fun recoveryTrendText(
+    restingHeartRate: String,
+    hrvToday: String,
+    hrvWeekAverage: String
+): String {
+    val resting = restingHeartRate.toLongOrNull()
+    val todayHrv = hrvToday.toDoubleOrNull()
+    val baselineHrv = hrvWeekAverage.toDoubleOrNull()
+
+    if (resting == null && (todayHrv == null || baselineHrv == null)) {
+        return "Recovery trend needs HRV and resting heart rate data before Emily can compare recovery."
+    }
+    if (todayHrv == null || baselineHrv == null) {
+        return "Resting heart rate is ${resting ?: "not available"} bpm, but HRV needs a today value and 7-day baseline before Emily can judge the recovery trend."
+    }
+
+    val hrvDifference = todayHrv - baselineHrv
+    val hrvSignal = when {
+        hrvDifference >= 3.0 -> "HRV is meaningfully above baseline"
+        hrvDifference <= -3.0 -> "HRV is meaningfully below baseline"
+        else -> "HRV is close to baseline"
+    }
+    val restingSignal = resting?.let { "resting heart rate today is $it bpm" }
+        ?: "resting heart rate is not available"
+    val recoveryRead = when {
+        hrvDifference >= 3.0 -> "That can point toward better recovery, especially if resting heart rate is near your normal range."
+        hrvDifference <= -3.0 -> "That can point toward more strain or less recovery, especially if resting heart rate is higher than normal."
+        else -> "That looks more like a steady recovery signal unless resting heart rate is unusual for you."
+    }
+
+    return "$hrvSignal at ${formatOneDecimal(todayHrv)} ms versus ${formatOneDecimal(baselineHrv)} ms baseline, and $restingSignal. $recoveryRead"
 }
 
 private fun restingHeartRateChangeText(

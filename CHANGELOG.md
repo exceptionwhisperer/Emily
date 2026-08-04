@@ -17,6 +17,7 @@ Saved on July 29, 2026.
 - Added a Home testing card that fills Emily with fake sample data without Health Connect or OpenAI.
 - Expanded heart data usage to import latest, low, high, and sample count alongside average and resting heart rate.
 - Added HRV recovery tracking from Health Connect with today's latest HRV, 7-day average, sample count, and change text.
+- Updated Emily Coach to explain the HRV plus resting heart rate recovery trend first.
 
 ### Added
 
