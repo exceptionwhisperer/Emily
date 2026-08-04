@@ -207,6 +207,7 @@ private fun HealthTrackerScreen() {
     var activeCalories by remember { mutableStateOf("") }
     var exerciseMinutes by remember { mutableStateOf("") }
     var workoutTypes by remember { mutableStateOf("No workout types imported yet.") }
+    var workoutDetails by remember { mutableStateOf("No workout sessions imported yet.") }
     var weightPounds by remember { mutableStateOf("") }
     var mood by remember { mutableStateOf(7f) }
     var symptoms by remember { mutableStateOf("") }
@@ -333,6 +334,7 @@ private fun HealthTrackerScreen() {
             activeCalories = activeCalories,
             exerciseMinutes = exerciseMinutes,
             workoutTypes = workoutTypes,
+            workoutDetails = workoutDetails,
             weightPounds = weightPounds,
             selectedHealthData = selectedHealthData,
             recentEntries = entries.take(5)
@@ -363,6 +365,7 @@ private fun HealthTrackerScreen() {
                 hrvSamples = hrvSamples,
                 exerciseMinutes = exerciseMinutes,
                 workoutTypes = workoutTypes,
+                workoutDetails = workoutDetails,
                 mood = mood.roundToInt(),
                 trendSummary = trendSummary
             )
@@ -395,6 +398,7 @@ private fun HealthTrackerScreen() {
         activeCalories = "426"
         exerciseMinutes = "48"
         workoutTypes = "Walking x3, Strength training x1"
+        workoutDetails = "Walking - 22 min - high HR 132 bpm\nWalking - 16 min - high HR 118 bpm\nStrength training - 10 min - high HR 126 bpm"
         weightPounds = "168.4"
         mood = 8f
         symptoms = "Mild shoulder tightness after workout."
@@ -507,6 +511,7 @@ private fun HealthTrackerScreen() {
                                 if (importableData.includeWorkouts) {
                                     exerciseMinutes = importedData.today.exerciseMinutes?.toString().orEmpty()
                                     workoutTypes = importedData.today.workoutTypesSummary
+                                    workoutDetails = importedData.today.workoutDetailsSummary
                                 }
                                 if (importableData.includeWeight) {
                                     weightPounds = importedData.latestWeightPounds?.let { formatOneDecimal(it) }.orEmpty()
@@ -568,6 +573,7 @@ private fun HealthTrackerScreen() {
                     if (!it) {
                         exerciseMinutes = ""
                         workoutTypes = "Workout data not selected"
+                        workoutDetails = "Workout data not selected"
                     }
                 },
                 includeWeight = includeWeight,
@@ -664,12 +670,7 @@ private fun HealthTrackerScreen() {
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (includeWorkouts) {
-                            ImportedDataRow(
-                                label = "Exercise minutes",
-                                value = exerciseMinutes.ifBlank { "No data" },
-                                unit = "min"
-                            )
-                            Text(text = "Types: $workoutTypes", color = Charcoal.copy(alpha = 0.72f))
+                            WorkoutDetailsList(workoutDetails)
                         }
                         if (includeActiveCalories) {
                             ImportedDataRow(
@@ -980,6 +981,34 @@ private fun SourceNote(text: String) {
         fontSize = 13.sp,
         fontWeight = FontWeight.SemiBold
     )
+}
+
+@Composable
+private fun WorkoutDetailsList(workoutDetails: String) {
+    val rows = workoutDetails
+        .split("\n")
+        .map { row -> row.trim() }
+        .filter { row -> row.isNotBlank() }
+
+    if (rows.isEmpty() || workoutDetails == "Workout data not selected") {
+        SourceNote("No workout sessions imported yet")
+        return
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        rows.forEach { row ->
+            Text(
+                text = row,
+                color = Charcoal.copy(alpha = 0.78f),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(SoftMint.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            )
+        }
+    }
 }
 
 @Composable
@@ -1707,6 +1736,7 @@ private fun buildCoachInsight(
     activeCalories: String,
     exerciseMinutes: String,
     workoutTypes: String,
+    workoutDetails: String,
     weightPounds: String,
     selectedHealthData: SelectedHealthData,
     recentEntries: List<HealthEntry>
@@ -1748,6 +1778,7 @@ private fun buildCoachInsight(
         Heart/activity: ${heartRate.ifBlank { "no heart rate data" }} bpm avg, ${latestHeartRate.ifBlank { "no latest heart rate data" }} bpm latest, ${restingHeartRate.ifBlank { "no resting heart rate data" }} bpm resting, ${minHeartRate.ifBlank { "no low heart rate data" }} bpm low, ${maxHeartRate.ifBlank { "no high heart rate data" }} bpm high, ${heartRateSamples.ifBlank { "0" }} heart samples, HRV ${hrvToday.ifBlank { "no HRV data" }} ms today, HRV ${hrvWeekAverage.ifBlank { "no HRV baseline" }} ms 7-day average, HRV change ${hrvChange.ifBlank { "not available" }}, ${hrvSamples.ifBlank { "0" }} HRV samples, ${exerciseMinutes.ifBlank { "0" }} exercise minutes, ${activeCalories.ifBlank { "0" }} active calories.
         Recovery trend to explain first: $recoveryTrend
         Workout types: $workoutTypes
+        Workout sessions: $workoutDetails
         Weight: ${weightPounds.ifBlank { "no weight data" }} lb.
         Symptoms: $symptomLine
         Medications: $medicationLine
@@ -1774,6 +1805,7 @@ private fun buildFakeCoachResponse(
     hrvSamples: String,
     exerciseMinutes: String,
     workoutTypes: String,
+    workoutDetails: String,
     mood: Int,
     trendSummary: String
 ): FakeCoachResponse {
@@ -1802,7 +1834,7 @@ private fun buildFakeCoachResponse(
     val workoutText = if (exerciseMinutes.isBlank()) {
         "No workout minutes were imported yet."
     } else {
-        "Workout time is $exerciseMinutes minutes, with types listed as $workoutTypes."
+        "Workout time is $exerciseMinutes minutes, with sessions listed as $workoutDetails."
     }
 
     return FakeCoachResponse(
@@ -1944,6 +1976,12 @@ private suspend fun readHealthMetrics(
     val heartRateSamples = heartRateResponse?.records
         ?.flatMap { heartRateRecord -> heartRateRecord.samples }
         .orEmpty()
+    val workoutDetailsSummary = exerciseResponse?.records?.let { exerciseSessions ->
+        summarizeWorkoutDetails(
+            exerciseSessions = exerciseSessions,
+            heartRateSamples = heartRateSamples
+        )
+    } ?: "Workout data not selected"
     val hrvRecords = hrvResponse?.records.orEmpty()
     val hrvValues = hrvRecords.map { record -> record.heartRateVariabilityMillis }
 
@@ -1961,7 +1999,8 @@ private suspend fun readHealthMetrics(
         latestHrvMillis = hrvRecords.maxByOrNull { record -> record.time }?.heartRateVariabilityMillis,
         hrvAverageMillis = hrvValues.averageOrNull(),
         hrvSampleCount = hrvRecords.size.takeIf { count -> count > 0 },
-        workoutTypesSummary = workoutTypesSummary
+        workoutTypesSummary = workoutTypesSummary,
+        workoutDetailsSummary = workoutDetailsSummary
     )
 }
 
@@ -2114,6 +2153,33 @@ private fun summarizeWorkoutTypes(
         }
 }
 
+private fun summarizeWorkoutDetails(
+    exerciseSessions: List<ExerciseSessionRecord>,
+    heartRateSamples: List<HeartRateRecord.Sample>
+): String {
+    if (exerciseSessions.isEmpty()) {
+        return "No workout sessions found"
+    }
+
+    return exerciseSessions
+        .sortedBy { exerciseSession -> exerciseSession.startTime }
+        .joinToString(separator = "\n") { exerciseSession ->
+            val workoutMinutes = Duration
+                .between(exerciseSession.startTime, exerciseSession.endTime)
+                .toMinutes()
+                .coerceAtLeast(0)
+            val highestHeartRate = heartRateSamples
+                .filter { sample ->
+                    !sample.time.isBefore(exerciseSession.startTime) &&
+                        !sample.time.isAfter(exerciseSession.endTime)
+                }
+                .maxOfOrNull { sample -> sample.beatsPerMinute }
+            val highHeartRateText = highestHeartRate?.let { "$it bpm" } ?: "No data"
+
+            "${workoutTypeName(exerciseSession.exerciseType)} - $workoutMinutes min - high HR $highHeartRateText"
+        }
+}
+
 private fun workoutTypeName(exerciseType: Int): String {
     val rawName = ExerciseSessionRecord.EXERCISE_TYPE_INT_TO_STRING_MAP[exerciseType]
         ?: "Other workout"
@@ -2214,7 +2280,8 @@ private data class ImportedHealthMetrics(
     val latestHrvMillis: Double?,
     val hrvAverageMillis: Double?,
     val hrvSampleCount: Int?,
-    val workoutTypesSummary: String
+    val workoutTypesSummary: String,
+    val workoutDetailsSummary: String
 )
 
 private data class FakeCoachResponse(

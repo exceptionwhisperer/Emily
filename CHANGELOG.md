@@ -27,6 +27,7 @@ Saved on July 29, 2026.
 - Moved long card header summaries under the title so Recovery review spacing stays readable.
 - Left-aligned stacked Review values so HRV change reads like a clear statement.
 - Right-aligned stacked numeric Review values while keeping long text Review values left-aligned.
+- Added workout session review rows with workout type, minutes, and highest heart rate during each session.
 
 ### Added
 
