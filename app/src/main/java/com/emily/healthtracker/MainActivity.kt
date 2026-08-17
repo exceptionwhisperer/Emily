@@ -587,7 +587,10 @@ private fun HealthTrackerScreen() {
                                     weightPounds = importedData.latestWeightPounds?.let { formatOneDecimal(it) }.orEmpty()
                                 }
                                 trendSummary = importedData.trendSummary
-                                healthConnectMessage = importedData.today.importStatusText(importableData)
+                                healthConnectMessage = importedData.today.importStatusText(
+                                    selectedHealthData = importableData,
+                                    sourceLabel = importedData.sourceLabel
+                                )
                             } catch (exception: Exception) {
                                 healthConnectMessage =
                                     "Emily could not import Health Connect data yet: ${exception.message ?: "unknown issue"}"
@@ -2188,7 +2191,10 @@ private fun estimateCoachCostDollars(inputTokens: Int, outputTokens: Int): Doubl
     return inputCost + outputCost
 }
 
-private fun ImportedHealthMetrics.importStatusText(selectedHealthData: SelectedHealthData): String {
+private fun ImportedHealthMetrics.importStatusText(
+    selectedHealthData: SelectedHealthData,
+    sourceLabel: String
+): String {
     val found = buildList {
         if (selectedHealthData.includeSteps && steps != null) add("steps")
         if (selectedHealthData.includeSleep && sleepMinutes != null && sleepMinutes > 0) add("sleep")
@@ -2210,12 +2216,28 @@ private fun ImportedHealthMetrics.importStatusText(selectedHealthData: SelectedH
 
     return when {
         found.isNotEmpty() && missing.isNotEmpty() ->
-            "Imported real Health Connect data: ${found.joinToString()}. No records found today for: ${missing.joinToString()}."
+            "Imported real Health Connect data from $sourceLabel: ${found.joinToString()}. No records found for: ${missing.joinToString()}."
         found.isNotEmpty() ->
-            "Imported real Health Connect data: ${found.joinToString()}."
+            "Imported real Health Connect data from $sourceLabel: ${found.joinToString()}."
         else ->
-            "Health Connect permission is granted, but no selected records were found for today yet. Open Samsung Health/Health Connect and confirm today's data has synced."
+            "Health Connect permission is granted, but no selected records were found today or in the recent 36-hour fallback. Open Samsung Health/Health Connect and confirm data has synced."
     }
+}
+
+private fun ImportedHealthMetrics.hasSelectedRecords(selectedHealthData: SelectedHealthData): Boolean {
+    return (selectedHealthData.includeSteps && steps != null) ||
+        (selectedHealthData.includeSleep && sleepMinutes != null && sleepMinutes > 0) ||
+        (
+            selectedHealthData.includeHeartRate &&
+                (
+                    averageHeartRate != null ||
+                        restingHeartRate != null ||
+                        latestHeartRate != null ||
+                        latestHrvMillis != null
+                )
+            ) ||
+        (selectedHealthData.includeActiveCalories && activeCalories != null && activeCalories > 0.0) ||
+        (selectedHealthData.includeWorkouts && exerciseMinutes != null && exerciseMinutes > 0)
 }
 
 private suspend fun requestCoachFromBackend(
@@ -2297,8 +2319,20 @@ private suspend fun readHealthConnectData(
     val todayRange = TimeRangeFilter.between(todayStart, tomorrowStart)
     val weekRange = TimeRangeFilter.between(weekStart, tomorrowStart)
 
+    val recentStart = java.time.Instant.now().minus(Duration.ofHours(36))
+    val recentRange = TimeRangeFilter.between(recentStart, tomorrowStart)
     val today = readHealthMetrics(healthConnectClient, todayRange, selectedHealthData)
     val week = readHealthMetrics(healthConnectClient, weekRange, selectedHealthData)
+    val displayMetrics = if (today.hasSelectedRecords(selectedHealthData)) {
+        today
+    } else {
+        readHealthMetrics(healthConnectClient, recentRange, selectedHealthData)
+    }
+    val sourceLabel = if (today.hasSelectedRecords(selectedHealthData)) {
+        "today"
+    } else {
+        "recent 36-hour fallback"
+    }
     val weekAverageHrvMillis = week.hrvAverageMillis
     val latestWeight = if (selectedHealthData.includeWeight) {
         readLatestWeightPounds(
@@ -2310,10 +2344,11 @@ private suspend fun readHealthConnectData(
     }
 
     return ImportedHealthDataSet(
-        today = today,
+        today = displayMetrics,
         weekAverageHrvMillis = weekAverageHrvMillis,
         latestWeightPounds = latestWeight,
-        trendSummary = buildTrendSummary(today, week)
+        trendSummary = buildTrendSummary(displayMetrics, week),
+        sourceLabel = sourceLabel
     )
 }
 
@@ -2677,7 +2712,8 @@ private data class ImportedHealthDataSet(
     val today: ImportedHealthMetrics,
     val weekAverageHrvMillis: Double?,
     val latestWeightPounds: Double?,
-    val trendSummary: String
+    val trendSummary: String,
+    val sourceLabel: String
 )
 
 private data class ImportedHealthMetrics(
