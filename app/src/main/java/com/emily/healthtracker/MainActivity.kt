@@ -223,7 +223,7 @@ private fun HealthTrackerScreen() {
     var restingHeartRateBaseline by remember { mutableStateOf("") }
     var hrvBaseline by remember { mutableStateOf("") }
     var profileHealthNotes by remember { mutableStateOf("") }
-    var backendBaseUrl by remember { mutableStateOf("http://10.0.2.2:8787") }
+    var backendBaseUrl by remember { mutableStateOf(DefaultBackendBaseUrl) }
     var backendStatus by remember { mutableStateOf("Not checked from this phone yet.") }
     var trendSummary by remember { mutableStateOf("7-day trends will appear after importing Health Connect data.") }
     var coachInsight by remember { mutableStateOf("Import or enter today's numbers, then ask Emily Coach for a plain-language summary.") }
@@ -319,7 +319,7 @@ private fun HealthTrackerScreen() {
             hrvBaseline = profile.hrvBaseline
             profileHealthNotes = profile.healthNotes
         }
-        backendBaseUrl = preferences.getString("backendBaseUrl", "http://10.0.2.2:8787") ?: "http://10.0.2.2:8787"
+        backendBaseUrl = preferences.getString("backendBaseUrl", DefaultBackendBaseUrl) ?: DefaultBackendBaseUrl
     }
 
     LaunchedEffect(healthConnectClient, healthConnectPermissions) {
@@ -438,12 +438,13 @@ private fun HealthTrackerScreen() {
                         coachOutputTokens += coachResult.outputTokens ?: estimateTokens(coachResult.coachText)
                     }
                     .onFailure { error ->
-                        backendStatus = "Backend call failed: ${error.message ?: "unknown error"}"
-                        chatGptCoachResponse = "Emily could not reach the Coach backend. Check that the backend is running on Windows and that the backend URL in Profile matches your PC's local IP address."
+                        val failureMessage = error.message ?: "unknown error"
+                        backendStatus = "Backend call failed: $failureMessage"
+                        chatGptCoachResponse = "Emily could not reach the Coach backend at ${backendBaseUrl.ifBlank { "no URL" }}. Error: $failureMessage"
                         chatGptSuggestions = listOf(
                             "Keep Fake data test mode checked while troubleshooting.",
-                            "On your phone, use your Windows IP address, not localhost.",
-                            "Confirm Windows firewall allows port 8787."
+                            "Confirm Profile uses https://emily-coach.onrender.com.",
+                            "Render Free can take about a minute to wake up after being idle."
                         )
                     }
                 isCoachLoading = false
@@ -586,7 +587,7 @@ private fun HealthTrackerScreen() {
                                     weightPounds = importedData.latestWeightPounds?.let { formatOneDecimal(it) }.orEmpty()
                                 }
                                 trendSummary = importedData.trendSummary
-                                healthConnectMessage = "Imported granted Health Connect data and updated 7-day trends."
+                                healthConnectMessage = importedData.today.importStatusText(importableData)
                             } catch (exception: Exception) {
                                 healthConnectMessage =
                                     "Emily could not import Health Connect data yet: ${exception.message ?: "unknown issue"}"
@@ -2187,6 +2188,36 @@ private fun estimateCoachCostDollars(inputTokens: Int, outputTokens: Int): Doubl
     return inputCost + outputCost
 }
 
+private fun ImportedHealthMetrics.importStatusText(selectedHealthData: SelectedHealthData): String {
+    val found = buildList {
+        if (selectedHealthData.includeSteps && steps != null) add("steps")
+        if (selectedHealthData.includeSleep && sleepMinutes != null && sleepMinutes > 0) add("sleep")
+        if (selectedHealthData.includeHeartRate && averageHeartRate != null) add("average HR")
+        if (selectedHealthData.includeHeartRate && restingHeartRate != null) add("resting HR")
+        if (selectedHealthData.includeHeartRate && latestHrvMillis != null) add("HRV")
+        if (selectedHealthData.includeActiveCalories && activeCalories != null && activeCalories > 0.0) add("active calories")
+        if (selectedHealthData.includeWorkouts && exerciseMinutes != null && exerciseMinutes > 0) add("workouts")
+    }
+    val missing = buildList {
+        if (selectedHealthData.includeSteps && steps == null) add("steps")
+        if (selectedHealthData.includeSleep && (sleepMinutes == null || sleepMinutes <= 0)) add("sleep")
+        if (selectedHealthData.includeHeartRate && averageHeartRate == null) add("average HR")
+        if (selectedHealthData.includeHeartRate && restingHeartRate == null) add("resting HR")
+        if (selectedHealthData.includeHeartRate && latestHrvMillis == null) add("HRV")
+        if (selectedHealthData.includeActiveCalories && (activeCalories == null || activeCalories <= 0.0)) add("active calories")
+        if (selectedHealthData.includeWorkouts && (exerciseMinutes == null || exerciseMinutes <= 0)) add("workouts")
+    }
+
+    return when {
+        found.isNotEmpty() && missing.isNotEmpty() ->
+            "Imported real Health Connect data: ${found.joinToString()}. No records found today for: ${missing.joinToString()}."
+        found.isNotEmpty() ->
+            "Imported real Health Connect data: ${found.joinToString()}."
+        else ->
+            "Health Connect permission is granted, but no selected records were found for today yet. Open Samsung Health/Health Connect and confirm today's data has synced."
+    }
+}
+
 private suspend fun requestCoachFromBackend(
     backendBaseUrl: String,
     question: String,
@@ -2854,6 +2885,7 @@ private val SoftCoral = Color(0xFFFFE8DF)
 private val Teal = Color(0xFF247C76)
 private val Coral = Color(0xFFE96F5F)
 private val Charcoal = Color(0xFF24302F)
+private const val DefaultBackendBaseUrl = "https://emily-coach.onrender.com"
 
 private val suggestedCoachQuestions = listOf(
     "Is my HRV and resting heart rate showing recovery?",
