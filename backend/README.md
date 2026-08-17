@@ -17,7 +17,7 @@ The API key belongs on this backend, not inside the Android app.
 
 ```powershell
 cd "C:\Users\Dad\Documents\Emily 2\backend"
-npm start
+npm run start:local
 ```
 
 The backend runs at:
@@ -49,6 +49,30 @@ Invoke-RestMethod `
 - Android emulator can usually reach this backend at `http://10.0.2.2:8787`.
 - A physical phone needs the computer's local network IP address, such as `http://192.168.1.25:8787`.
 - Windows Firewall may ask for permission the first time the backend is run.
+
+## Railway Deployment Notes
+
+Railway should deploy only this backend folder, not the whole Android project.
+
+1. In Railway, create a new project from GitHub.
+2. Choose the GitHub repo `exceptionwhisperer/Emily`.
+3. Set the service Root Directory to `/backend`.
+4. Add these service variables:
+
+```text
+OPENAI_API_KEY=your_private_openai_api_key
+OPENAI_MODEL=gpt-5
+```
+
+Railway provides `PORT` automatically. The backend uses `process.env.PORT`, so do not hard-code the port in Railway.
+
+After Railway deploys, open:
+
+```text
+https://your-railway-domain/health
+```
+
+Then put the Railway service URL into Emily's Profile tab as the Coach backend URL.
 
 ## Safety Boundary
 
