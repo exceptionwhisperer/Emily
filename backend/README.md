@@ -50,6 +50,39 @@ Invoke-RestMethod `
 - A physical phone needs the computer's local network IP address, such as `http://192.168.1.25:8787`.
 - Windows Firewall may ask for permission the first time the backend is run.
 
+## Free Render Deployment Notes
+
+Render Free Web Service is the first no-monthly-server-cost hosting target for Emily. Free services can sleep after idle time, so the first Coach request may take about a minute to wake up.
+
+Render should deploy only this backend folder, not the whole Android project.
+
+1. In Render, create a new **Web Service** from GitHub.
+2. Choose the GitHub repo `exceptionwhisperer/Emily`.
+3. Set **Root Directory** to `backend`.
+4. Use these commands:
+
+```text
+Build Command: npm install
+Start Command: npm start
+```
+
+5. Add these private environment variables:
+
+```text
+OPENAI_API_KEY=your_private_openai_api_key
+OPENAI_MODEL=gpt-5
+```
+
+Render provides `PORT` automatically. The backend uses `process.env.PORT`, so do not hard-code the port in Render.
+
+After Render deploys, open:
+
+```text
+https://your-render-domain.onrender.com/health
+```
+
+Then put the Render service URL into Emily's Profile tab as the Coach backend URL.
+
 ## Railway Deployment Notes
 
 Railway should deploy only this backend folder, not the whole Android project.

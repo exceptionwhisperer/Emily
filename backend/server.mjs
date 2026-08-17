@@ -2,7 +2,8 @@ import http from "node:http";
 
 const PORT = Number(process.env.PORT || 8787);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.6-terra";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5";
+const HOST = process.env.HOST || "0.0.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -129,8 +130,8 @@ const server = http.createServer(async (request, response) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Emily Coach backend running at http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`Emily Coach backend running on ${HOST}:${PORT}`);
 });
 
 function sendJson(response, statusCode, payload) {
