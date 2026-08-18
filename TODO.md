@@ -14,9 +14,10 @@ Goal: finish a private Emily test build that Troy can use on the Samsung phone f
   - Fake data test mode unchecked: real backend/OpenAI response.
 - Improve the hidden Debug tab so it shows backend reachability, last request payload, last response preview, token usage, and errors.
 - Test Health Connect permissions on the live Samsung phone with only some categories granted.
-- Confirm Import Today fills steps, sleep, heart rate, resting heart rate, workouts, active calories, and weight when those permissions are granted.
+- Confirm Import Today fills steps, sleep, heart rate, resting heart rate, HRV, SpO2, workouts, active calories, and weight when those permissions are granted.
 - Improve the Health Connect card message so it lists which selected categories are granted and which still need permission.
 - Make empty data states cleaner when Health Connect has permission but no data for today.
+- Compare Emily Review against Troy's phone health app for steps, sleep, resting HR, HRV, heart range, SpO2, and active zone minutes.
 
 ## Week 2 - Coach Quality
 
@@ -34,6 +35,7 @@ Goal: finish a private Emily test build that Troy can use on the Samsung phone f
 - Tighten mobile layouts so long labels cannot wrap awkwardly inside small boxes.
 - Make workout rows show workout type, minutes, and highest heart rate for each workout session.
 - Add a manual refresh timestamp after data import.
+- Consider showing sleep as hours/minutes, for example `7h 31m`, to match the health app display.
 - Store imported snapshots by date so trends are easier to review later.
 - Add optional charts for steps, sleep, resting heart rate, HRV, and workouts only after the list views are stable.
 
@@ -50,7 +52,7 @@ Goal: finish a private Emily test build that Troy can use on the Samsung phone f
 
 - Treat imported health data as review material for Emily Coach, not as manual form entry.
 - Move saved check-ins from `SharedPreferences` to Room or DataStore.
-- Add blood pressure, oxygen saturation, nutrition, or other Health Connect types only after the basic flow is stable.
+- Add blood pressure, respiratory rate, nutrition, or other Health Connect types only after the basic flow is stable.
 
 ## Always
 

@@ -34,6 +34,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -71,6 +72,7 @@ import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
@@ -209,6 +211,7 @@ private fun HealthTrackerScreen() {
     var hrvWeekAverage by remember { mutableStateOf("") }
     var hrvChange by remember { mutableStateOf("") }
     var hrvSamples by remember { mutableStateOf("") }
+    var oxygenSaturation by remember { mutableStateOf("") }
     var activeCalories by remember { mutableStateOf("") }
     var exerciseMinutes by remember { mutableStateOf("") }
     var workoutTypes by remember { mutableStateOf("No workout types imported yet.") }
@@ -233,12 +236,14 @@ private fun HealthTrackerScreen() {
     var lastCoachQuestion by remember { mutableStateOf("") }
     var fakeCoachMode by remember { mutableStateOf(true) }
     var isCoachLoading by remember { mutableStateOf(false) }
+    var isImportingHealthData by remember { mutableStateOf(false) }
     var coachRequestCount by remember { mutableStateOf(0) }
     var coachInputTokens by remember { mutableStateOf(0) }
     var coachOutputTokens by remember { mutableStateOf(0) }
     var includeSteps by remember { mutableStateOf(true) }
     var includeSleep by remember { mutableStateOf(true) }
     var includeHeartRate by remember { mutableStateOf(true) }
+    var includeBloodOxygen by remember { mutableStateOf(true) }
     var includeActiveCalories by remember { mutableStateOf(true) }
     var includeWorkouts by remember { mutableStateOf(true) }
     var includeWeight by remember { mutableStateOf(false) }
@@ -264,6 +269,7 @@ private fun HealthTrackerScreen() {
         includeSteps = includeSteps,
         includeSleep = includeSleep,
         includeHeartRate = includeHeartRate,
+        includeBloodOxygen = includeBloodOxygen,
         includeActiveCalories = includeActiveCalories,
         includeWorkouts = includeWorkouts,
         includeWeight = includeWeight
@@ -354,6 +360,7 @@ private fun HealthTrackerScreen() {
             hrvWeekAverage = hrvWeekAverage,
             hrvChange = hrvChange,
             hrvSamples = hrvSamples,
+            oxygenSaturation = oxygenSaturation,
             activeCalories = activeCalories,
             exerciseMinutes = exerciseMinutes,
             workoutTypes = workoutTypes,
@@ -464,6 +471,7 @@ private fun HealthTrackerScreen() {
         hrvWeekAverage = "38.2"
         hrvChange = "4.4 above 7-day average"
         hrvSamples = "5"
+        oxygenSaturation = "94"
         activeCalories = "426"
         exerciseMinutes = "48"
         workoutTypes = "Walking x3, Strength training x1"
@@ -473,7 +481,7 @@ private fun HealthTrackerScreen() {
         symptoms = "Mild shoulder tightness after workout."
         medications = "Morning vitamins logged."
         notes = "Good energy today. Testing Emily with fake sample data."
-        trendSummary = "7-day trend: 8120 steps/day, 7.1 sleep hours/day, 38 exercise min/day, 390 active calories/day, 76 bpm average heart rate, 68 bpm resting heart rate, heart range 58-132 bpm, 96 heart samples, HRV 38.2 ms 7-day average. Today's resting heart rate is 67 bpm, 1 below your 7-day average. Latest HRV today is 42.6 ms, 4.4 above your 7-day average. Latest heart rate today is 74 bpm. Workout types this week: Walking x3, Strength training x1. Today: 9420 steps and 7.4 sleep hours."
+        trendSummary = "7-day trend: 8120 steps/day, 7.1 sleep hours/day, 38 exercise min/day, 390 active calories/day, 76 bpm average heart rate, 68 bpm resting heart rate, heart range 58-132 bpm, 96 heart samples, HRV 38.2 ms 7-day average, SpO2 94%. Today's resting heart rate is 67 bpm, 1 below your 7-day average. Latest HRV today is 42.6 ms, 4.4 above your 7-day average. Latest heart rate today is 74 bpm. Workout types this week: Walking x3, Strength training x1. Today: 9420 steps and 7.4 sleep hours."
         coachInsight = "Fake health data has been filled in. Go to Review, Coach, or Trend to test the cards."
         chatGptCoachResponse = "Fake Emily Coach response is ready. This did not call OpenAI and did not use tokens."
         chatGptSuggestions = listOf(
@@ -483,6 +491,83 @@ private fun HealthTrackerScreen() {
         )
         fakeCoachMode = true
         healthConnectMessage = "Fake test data filled. Health Connect was not used for this sample."
+    }
+    fun importTodayFromHealthConnect() {
+        val client = healthConnectClient ?: run {
+            healthConnectMessage = "Health Connect is not available on this device."
+            return
+        }
+        if (isImportingHealthData) return
+
+        coroutineScope.launch {
+            isImportingHealthData = true
+            healthConnectMessage = "Importing Health Connect data..."
+            try {
+                val currentGrantedPermissions = client.permissionController.getGrantedPermissions()
+                updatePermissionState(currentGrantedPermissions)
+                val importableData = selectedHealthData.withGrantedPermissions(currentGrantedPermissions)
+                if (!importableData.hasAnyHealthConnectImport()) {
+                    healthConnectMessage = "No selected Health Connect permissions are granted yet. Tap Connect or Manage first."
+                    return@launch
+                }
+                val importedData = readHealthConnectData(client, importableData)
+                if (importableData.includeSteps) {
+                    steps = importedData.today.steps?.toString().orEmpty()
+                }
+                if (importableData.includeSleep) {
+                    sleepHours = importedData.today.sleepMinutes?.let { formatHours(it) }.orEmpty()
+                }
+                if (importableData.includeHeartRate) {
+                    heartRate = importedData.today.averageHeartRate?.toString().orEmpty()
+                    restingHeartRate = importedData.today.restingHeartRate?.toString().orEmpty()
+                    latestHeartRate = importedData.today.latestHeartRate?.toString().orEmpty()
+                    minHeartRate = importedData.today.minHeartRate?.toString().orEmpty()
+                    maxHeartRate = importedData.today.maxHeartRate?.toString().orEmpty()
+                    heartRateSamples = importedData.today.heartRateSampleCount
+                        ?.takeIf { it > 0 }
+                        ?.toString()
+                        .orEmpty()
+                    hrvToday = importedData.today.latestHrvMillis?.let { formatOneDecimal(it) }.orEmpty()
+                    hrvWeekAverage = importedData.weekAverageHrvMillis?.let { formatOneDecimal(it) }.orEmpty()
+                    hrvChange = hrvChangeText(
+                        todayHrvMillis = importedData.today.latestHrvMillis,
+                        weekAverageHrvMillis = importedData.weekAverageHrvMillis
+                    )
+                    hrvSamples = importedData.today.hrvSampleCount
+                        ?.takeIf { it > 0 }
+                        ?.toString()
+                        .orEmpty()
+                }
+                if (importableData.includeBloodOxygen) {
+                    oxygenSaturation = importedData.today.oxygenSaturationPercent?.let { formatPercentage(it) }.orEmpty()
+                }
+                if (importableData.includeActiveCalories) {
+                    activeCalories = importedData.today.activeCalories
+                        ?.roundToInt()
+                        ?.takeIf { it > 0 }
+                        ?.toString()
+                        .orEmpty()
+                }
+                if (importableData.includeWorkouts) {
+                    exerciseMinutes = importedData.today.exerciseMinutes?.toString().orEmpty()
+                    workoutTypes = importedData.today.workoutTypesSummary
+                    workoutDetails = importedData.today.workoutDetailsSummary
+                }
+                if (importableData.includeWeight) {
+                    weightPounds = importedData.latestWeightPounds?.let { formatOneDecimal(it) }.orEmpty()
+                }
+                trendSummary = importedData.trendSummary
+                healthConnectMessage = importedData.today.importStatusText(
+                    selectedHealthData = importableData,
+                    sourceLabel = importedData.sourceLabel
+                )
+            } catch (exception: Exception) {
+                healthConnectMessage =
+                    "Emily could not import Health Connect data yet: ${exception.message ?: "unknown issue"}"
+            } finally {
+                isImportingHealthData = false
+            }
+        }
     }
 
     Scaffold(
@@ -513,6 +598,7 @@ private fun HealthTrackerScreen() {
                 HealthConnectCard(
                     statusText = healthConnectMessage,
                     isAvailable = healthConnectClient != null,
+                    isImporting = isImportingHealthData,
                     hasPermission = hasHealthConnectPermission,
                     hasSelectedData = hasSelectedData,
                     onRequestPermission = {
@@ -533,80 +619,22 @@ private fun HealthTrackerScreen() {
                         }
                     },
                     onImportToday = {
-                        val client = healthConnectClient ?: return@HealthConnectCard
-                        coroutineScope.launch {
-                            try {
-                                val currentGrantedPermissions = client.permissionController.getGrantedPermissions()
-                                updatePermissionState(currentGrantedPermissions)
-                                val importableData = selectedHealthData.withGrantedPermissions(currentGrantedPermissions)
-                                if (!importableData.hasAnyHealthConnectImport()) {
-                                    healthConnectMessage = "No selected Health Connect permissions are granted yet. Tap Connect or Manage first."
-                                    return@launch
-                                }
-                                val importedData = readHealthConnectData(client, importableData)
-                                if (importableData.includeSteps) {
-                                    steps = importedData.today.steps?.toString().orEmpty()
-                                }
-                                if (importableData.includeSleep) {
-                                    sleepHours = importedData.today.sleepMinutes?.let { formatHours(it) }.orEmpty()
-                                }
-                                if (importableData.includeHeartRate) {
-                                    heartRate = importedData.today.averageHeartRate?.toString().orEmpty()
-                                    restingHeartRate = importedData.today.restingHeartRate?.toString().orEmpty()
-                                    latestHeartRate = importedData.today.latestHeartRate?.toString().orEmpty()
-                                    minHeartRate = importedData.today.minHeartRate?.toString().orEmpty()
-                                    maxHeartRate = importedData.today.maxHeartRate?.toString().orEmpty()
-                                    heartRateSamples = importedData.today.heartRateSampleCount
-                                        ?.takeIf { it > 0 }
-                                        ?.toString()
-                                        .orEmpty()
-                                    hrvToday = importedData.today.latestHrvMillis?.let { formatOneDecimal(it) }.orEmpty()
-                                    hrvWeekAverage = importedData.weekAverageHrvMillis?.let { formatOneDecimal(it) }.orEmpty()
-                                    hrvChange = hrvChangeText(
-                                        todayHrvMillis = importedData.today.latestHrvMillis,
-                                        weekAverageHrvMillis = importedData.weekAverageHrvMillis
-                                    )
-                                    hrvSamples = importedData.today.hrvSampleCount
-                                        ?.takeIf { it > 0 }
-                                        ?.toString()
-                                        .orEmpty()
-                                }
-                                if (importableData.includeActiveCalories) {
-                                    activeCalories = importedData.today.activeCalories
-                                        ?.roundToInt()
-                                        ?.takeIf { it > 0 }
-                                        ?.toString()
-                                        .orEmpty()
-                                }
-                                if (importableData.includeWorkouts) {
-                                    exerciseMinutes = importedData.today.exerciseMinutes?.toString().orEmpty()
-                                    workoutTypes = importedData.today.workoutTypesSummary
-                                    workoutDetails = importedData.today.workoutDetailsSummary
-                                }
-                                if (importableData.includeWeight) {
-                                    weightPounds = importedData.latestWeightPounds?.let { formatOneDecimal(it) }.orEmpty()
-                                }
-                                trendSummary = importedData.trendSummary
-                                healthConnectMessage = importedData.today.importStatusText(
-                                    selectedHealthData = importableData,
-                                    sourceLabel = importedData.sourceLabel
-                                )
-                            } catch (exception: Exception) {
-                                healthConnectMessage =
-                                    "Emily could not import Health Connect data yet: ${exception.message ?: "unknown issue"}"
-                            }
-                        }
+                        importTodayFromHealthConnect()
                     }
-                )
-            }
-            item {
-                FakeDataTestCard(
-                    onFillFakeData = { fillFakeHealthData() }
                 )
             }
         }
 
         if (selectedSection == AppSection.Data) {
+            item {
+                HealthDataRefreshCard(
+                    statusText = healthConnectMessage,
+                    isImporting = isImportingHealthData,
+                    isAvailable = healthConnectClient != null,
+                    hasSelectedData = hasSelectedData,
+                    onRefresh = { importTodayFromHealthConnect() }
+                )
+            }
             item {
             DataSelectionCard(
                 includeSteps = includeSteps,
@@ -634,6 +662,11 @@ private fun HealthTrackerScreen() {
                         hrvChange = ""
                         hrvSamples = ""
                     }
+                },
+                includeBloodOxygen = includeBloodOxygen,
+                onIncludeBloodOxygenChange = {
+                    includeBloodOxygen = it
+                    if (!it) oxygenSaturation = ""
                 },
                 includeActiveCalories = includeActiveCalories,
                 onIncludeActiveCaloriesChange = {
@@ -715,6 +748,18 @@ private fun HealthTrackerScreen() {
                             value = hrvSamples.ifBlank { "No data" }
                         )
                     }
+                }
+            }
+        }
+
+        if (selectedSection == AppSection.Data && includeBloodOxygen) {
+            item {
+                MetricCard(title = "Blood oxygen", value = oxygenSaturation.percentOrNoData()) {
+                    ImportedDataRow(
+                        label = "Latest SpO2 from Health Connect",
+                        value = oxygenSaturation.ifBlank { "No data" },
+                        unit = "%"
+                    )
                 }
             }
         }
@@ -820,8 +865,6 @@ private fun HealthTrackerScreen() {
         if (selectedSection == AppSection.Coach) {
             item {
             CoachConversationCard(
-                fakeCoachMode = fakeCoachMode,
-                onFakeCoachModeChange = { fakeCoachMode = it },
                 question = coachQuestion,
                 onQuestionChange = { coachQuestion = it },
                 isCoachLoading = isCoachLoading,
@@ -892,6 +935,13 @@ private fun HealthTrackerScreen() {
         }
 
         if (selectedSection == AppSection.Debug && isDebugUnlocked) {
+            item {
+                FakeDataTestCard(
+                    fakeCoachMode = fakeCoachMode,
+                    onFakeCoachModeChange = { fakeCoachMode = it },
+                    onFillFakeData = { fillFakeHealthData() }
+                )
+            }
             item {
                 EmilyDebugCard(
                     fakeCoachMode = fakeCoachMode,
@@ -1038,6 +1088,8 @@ private fun DataSelectionCard(
     onIncludeSleepChange: (Boolean) -> Unit,
     includeHeartRate: Boolean,
     onIncludeHeartRateChange: (Boolean) -> Unit,
+    includeBloodOxygen: Boolean,
+    onIncludeBloodOxygenChange: (Boolean) -> Unit,
     includeActiveCalories: Boolean,
     onIncludeActiveCaloriesChange: (Boolean) -> Unit,
     includeWorkouts: Boolean,
@@ -1051,6 +1103,7 @@ private fun DataSelectionCard(
         includeSteps,
         includeSleep,
         includeHeartRate,
+        includeBloodOxygen,
         includeActiveCalories,
         includeWorkouts,
         includeWeight
@@ -1079,7 +1132,7 @@ private fun DataSelectionCard(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "$selectedCount of 6 selected",
+                        text = "$selectedCount of 7 selected",
                         color = Charcoal.copy(alpha = 0.72f)
                     )
                 }
@@ -1095,9 +1148,75 @@ private fun DataSelectionCard(
                 DataCheckboxRow("Steps", includeSteps, onIncludeStepsChange)
                 DataCheckboxRow("Sleep", includeSleep, onIncludeSleepChange)
                 DataCheckboxRow("Heart rate, HRV, and resting HR", includeHeartRate, onIncludeHeartRateChange)
+                DataCheckboxRow("Blood oxygen (SpO2)", includeBloodOxygen, onIncludeBloodOxygenChange)
                 DataCheckboxRow("Active calories", includeActiveCalories, onIncludeActiveCaloriesChange)
                 DataCheckboxRow("Workout types and minutes", includeWorkouts, onIncludeWorkoutsChange)
                 DataCheckboxRow("Weight", includeWeight, onIncludeWeightChange)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HealthDataRefreshCard(
+    statusText: String,
+    isImporting: Boolean,
+    isAvailable: Boolean,
+    hasSelectedData: Boolean,
+    onRefresh: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Health Connect data",
+                        color = Charcoal,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (isImporting) "Retrieving latest data..." else "Refresh Review from Health Connect.",
+                        color = if (isImporting) Teal else Charcoal.copy(alpha = 0.72f),
+                        fontSize = 13.sp,
+                        fontWeight = if (isImporting) FontWeight.SemiBold else FontWeight.Normal
+                    )
+                }
+                if (isImporting) {
+                    CircularProgressIndicator(
+                        color = Teal,
+                        strokeWidth = 3.dp,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+            Text(
+                text = statusText,
+                color = Charcoal.copy(alpha = 0.72f),
+                fontSize = 13.sp
+            )
+            Button(
+                onClick = onRefresh,
+                enabled = isAvailable && hasSelectedData && !isImporting,
+                colors = ButtonDefaults.buttonColors(containerColor = Teal),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text(if (isImporting) "Refreshing..." else "Refresh Health Data")
             }
         }
     }
@@ -1313,8 +1432,6 @@ private fun EmilyCoachCard(
 
 @Composable
 private fun CoachConversationCard(
-    fakeCoachMode: Boolean,
-    onFakeCoachModeChange: (Boolean) -> Unit,
     question: String,
     onQuestionChange: (String) -> Unit,
     isCoachLoading: Boolean,
@@ -1332,30 +1449,12 @@ private fun CoachConversationCard(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.padding(16.dp)
         ) {
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Ask Emily Coach",
-                        color = Charcoal,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = if (fakeCoachMode) "Fake data test mode: no OpenAI cost" else "Backend mode: may use your OpenAI account",
-                        color = if (fakeCoachMode) Teal else Coral,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                Checkbox(
-                    checked = fakeCoachMode,
-                    onCheckedChange = onFakeCoachModeChange
-                )
-            }
+            Text(
+                text = "Ask Emily Coach",
+                color = Charcoal,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
             Text(
                 text = "Tap a suggested question to load it, then edit it or send it.",
                 color = Charcoal.copy(alpha = 0.72f)
@@ -1685,6 +1784,7 @@ private fun EmilyDebugCard(
 private fun HealthConnectCard(
     statusText: String,
     isAvailable: Boolean,
+    isImporting: Boolean,
     hasPermission: Boolean,
     hasSelectedData: Boolean,
     onRequestPermission: () -> Unit,
@@ -1709,7 +1809,7 @@ private fun HealthConnectCard(
             )
             Text(text = statusText, color = Charcoal.copy(alpha = 0.72f))
             Text(
-                text = "Import Today fills the Health Connect boxes below. Mood, symptoms, medications, and notes stay manual.",
+                text = "Import Today fills the Health Connect data used by Review, Coach, and Trend. Mood, symptoms, medications, and notes stay manual.",
                 color = Charcoal.copy(alpha = 0.72f),
                 fontSize = 13.sp
             )
@@ -1747,14 +1847,28 @@ private fun HealthConnectCard(
             }
             Button(
                 onClick = onImportToday,
-                enabled = isAvailable && hasSelectedData,
+                enabled = isAvailable && hasSelectedData && !isImporting,
                 colors = ButtonDefaults.buttonColors(containerColor = Teal),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
-                Text("Import Today")
+                if (isImporting) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Text("Importing...")
+                    }
+                } else {
+                    Text("Import Today")
+                }
             }
         }
     }
@@ -1762,6 +1876,8 @@ private fun HealthConnectCard(
 
 @Composable
 private fun FakeDataTestCard(
+    fakeCoachMode: Boolean,
+    onFakeCoachModeChange: (Boolean) -> Unit,
     onFillFakeData: () -> Unit
 ) {
     Card(
@@ -1781,9 +1897,33 @@ private fun FakeDataTestCard(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Fill Emily with fake sample data. This does not use Health Connect, OpenAI, tokens, or money.",
+                text = "Use this only while building and checking screens. Fake mode does not call OpenAI or spend tokens.",
                 color = Charcoal.copy(alpha = 0.72f)
             )
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Use fake data",
+                        color = Charcoal,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = if (fakeCoachMode) "Testing is free right now." else "Coach can use the backend.",
+                        color = if (fakeCoachMode) Teal else Coral,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Checkbox(
+                    checked = fakeCoachMode,
+                    onCheckedChange = onFakeCoachModeChange
+                )
+            }
             Button(
                 onClick = onFillFakeData,
                 colors = ButtonDefaults.buttonColors(containerColor = Coral),
@@ -2048,6 +2188,7 @@ private fun buildCoachInsight(
     hrvWeekAverage: String,
     hrvChange: String,
     hrvSamples: String,
+    oxygenSaturation: String,
     activeCalories: String,
     exerciseMinutes: String,
     workoutTypes: String,
@@ -2092,7 +2233,7 @@ private fun buildCoachInsight(
         
         User-selected data types: $selectedDataSummary.
         Data used: $sleepHours hours sleep, $steps steps, mood $mood/10.
-        Heart/activity: ${heartRate.ifBlank { "no heart rate data" }} bpm avg, ${latestHeartRate.ifBlank { "no latest heart rate data" }} bpm latest, ${restingHeartRate.ifBlank { "no resting heart rate data" }} bpm resting, ${minHeartRate.ifBlank { "no low heart rate data" }} bpm low, ${maxHeartRate.ifBlank { "no high heart rate data" }} bpm high, ${heartRateSamples.ifBlank { "0" }} heart samples, HRV ${hrvToday.ifBlank { "no HRV data" }} ms today, HRV ${hrvWeekAverage.ifBlank { "no HRV baseline" }} ms 7-day average, HRV change ${hrvChange.ifBlank { "not available" }}, ${hrvSamples.ifBlank { "0" }} HRV samples, ${exerciseMinutes.ifBlank { "0" }} exercise minutes, ${activeCalories.ifBlank { "0" }} active calories.
+        Heart/activity: ${heartRate.ifBlank { "no heart rate data" }} bpm avg, ${latestHeartRate.ifBlank { "no latest heart rate data" }} bpm latest, ${restingHeartRate.ifBlank { "no resting heart rate data" }} bpm resting, ${minHeartRate.ifBlank { "no low heart rate data" }} bpm low, ${maxHeartRate.ifBlank { "no high heart rate data" }} bpm high, ${heartRateSamples.ifBlank { "0" }} heart samples, HRV ${hrvToday.ifBlank { "no HRV data" }} ms today, HRV ${hrvWeekAverage.ifBlank { "no HRV baseline" }} ms 7-day average, HRV change ${hrvChange.ifBlank { "not available" }}, ${hrvSamples.ifBlank { "0" }} HRV samples, SpO2 ${oxygenSaturation.ifBlank { "no blood oxygen data" }}%, ${exerciseMinutes.ifBlank { "0" }} exercise minutes, ${activeCalories.ifBlank { "0" }} active calories.
         Recovery trend to explain first: $recoveryTrend
         Workout types: $workoutTypes
         Workout sessions: $workoutDetails
@@ -2201,6 +2342,7 @@ private fun ImportedHealthMetrics.importStatusText(
         if (selectedHealthData.includeHeartRate && averageHeartRate != null) add("average HR")
         if (selectedHealthData.includeHeartRate && restingHeartRate != null) add("resting HR")
         if (selectedHealthData.includeHeartRate && latestHrvMillis != null) add("HRV")
+        if (selectedHealthData.includeBloodOxygen && oxygenSaturationPercent != null) add("SpO2")
         if (selectedHealthData.includeActiveCalories && activeCalories != null && activeCalories > 0.0) add("active calories")
         if (selectedHealthData.includeWorkouts && exerciseMinutes != null && exerciseMinutes > 0) add("workouts")
     }
@@ -2210,6 +2352,7 @@ private fun ImportedHealthMetrics.importStatusText(
         if (selectedHealthData.includeHeartRate && averageHeartRate == null) add("average HR")
         if (selectedHealthData.includeHeartRate && restingHeartRate == null) add("resting HR")
         if (selectedHealthData.includeHeartRate && latestHrvMillis == null) add("HRV")
+        if (selectedHealthData.includeBloodOxygen && oxygenSaturationPercent == null) add("SpO2")
         if (selectedHealthData.includeActiveCalories && (activeCalories == null || activeCalories <= 0.0)) add("active calories")
         if (selectedHealthData.includeWorkouts && (exerciseMinutes == null || exerciseMinutes <= 0)) add("workouts")
     }
@@ -2220,7 +2363,7 @@ private fun ImportedHealthMetrics.importStatusText(
         found.isNotEmpty() ->
             "Imported real Health Connect data from $sourceLabel: ${found.joinToString()}."
         else ->
-            "Health Connect permission is granted, but no selected records were found today or in the recent 36-hour fallback. Open Samsung Health/Health Connect and confirm data has synced."
+            "Health Connect permission is granted, but no selected records were found for today's calendar day. Open Samsung Health/Health Connect and confirm data has synced."
     }
 }
 
@@ -2236,8 +2379,39 @@ private fun ImportedHealthMetrics.hasSelectedRecords(selectedHealthData: Selecte
                         latestHrvMillis != null
                 )
             ) ||
+        (selectedHealthData.includeBloodOxygen && oxygenSaturationPercent != null) ||
         (selectedHealthData.includeActiveCalories && activeCalories != null && activeCalories > 0.0) ||
         (selectedHealthData.includeWorkouts && exerciseMinutes != null && exerciseMinutes > 0)
+}
+
+private fun ImportedHealthMetrics.withRecentRecoveryFallback(recent: ImportedHealthMetrics): ImportedHealthMetrics {
+    return copy(
+        sleepMinutes = sleepMinutes ?: recent.sleepMinutes,
+        averageHeartRate = averageHeartRate ?: recent.averageHeartRate,
+        restingHeartRate = restingHeartRate ?: recent.restingHeartRate,
+        latestHeartRate = latestHeartRate ?: recent.latestHeartRate,
+        minHeartRate = minHeartRate ?: recent.minHeartRate,
+        maxHeartRate = maxHeartRate ?: recent.maxHeartRate,
+        heartRateSampleCount = heartRateSampleCount ?: recent.heartRateSampleCount,
+        latestHrvMillis = latestHrvMillis ?: recent.latestHrvMillis,
+        hrvAverageMillis = hrvAverageMillis ?: recent.hrvAverageMillis,
+        hrvSampleCount = hrvSampleCount ?: recent.hrvSampleCount,
+        oxygenSaturationPercent = oxygenSaturationPercent ?: recent.oxygenSaturationPercent
+    )
+}
+
+private fun ImportedHealthMetrics.usesRecentRecoveryFallback(today: ImportedHealthMetrics): Boolean {
+    return (sleepMinutes != null && today.sleepMinutes == null) ||
+        (averageHeartRate != null && today.averageHeartRate == null) ||
+        (restingHeartRate != null && today.restingHeartRate == null) ||
+        (latestHeartRate != null && today.latestHeartRate == null) ||
+        (minHeartRate != null && today.minHeartRate == null) ||
+        (maxHeartRate != null && today.maxHeartRate == null) ||
+        (heartRateSampleCount != null && today.heartRateSampleCount == null) ||
+        (latestHrvMillis != null && today.latestHrvMillis == null) ||
+        (hrvAverageMillis != null && today.hrvAverageMillis == null) ||
+        (hrvSampleCount != null && today.hrvSampleCount == null) ||
+        (oxygenSaturationPercent != null && today.oxygenSaturationPercent == null)
 }
 
 private suspend fun requestCoachFromBackend(
@@ -2323,15 +2497,12 @@ private suspend fun readHealthConnectData(
     val recentRange = TimeRangeFilter.between(recentStart, tomorrowStart)
     val today = readHealthMetrics(healthConnectClient, todayRange, selectedHealthData)
     val week = readHealthMetrics(healthConnectClient, weekRange, selectedHealthData)
-    val displayMetrics = if (today.hasSelectedRecords(selectedHealthData)) {
-        today
+    val recent = readHealthMetrics(healthConnectClient, recentRange, selectedHealthData)
+    val displayMetrics = today.withRecentRecoveryFallback(recent)
+    val sourceLabel = if (displayMetrics.usesRecentRecoveryFallback(today)) {
+        "today, with recent sleep/recovery fallback"
     } else {
-        readHealthMetrics(healthConnectClient, recentRange, selectedHealthData)
-    }
-    val sourceLabel = if (today.hasSelectedRecords(selectedHealthData)) {
         "today"
-    } else {
-        "recent 36-hour fallback"
     }
     val weekAverageHrvMillis = week.hrvAverageMillis
     val latestWeight = if (selectedHealthData.includeWeight) {
@@ -2416,9 +2587,19 @@ private suspend fun readHealthMetrics(
     } else {
         null
     }
+    val oxygenSaturationResponse = if (selectedHealthData.includeBloodOxygen) {
+        healthConnectClient.readRecords(
+            ReadRecordsRequest(
+                recordType = OxygenSaturationRecord::class,
+                timeRangeFilter = timeRangeFilter
+            )
+        )
+    } else {
+        null
+    }
 
     val sleepMinutes = sleepResponse?.records?.sumOf { sleepRecord ->
-        Duration.between(sleepRecord.startTime, sleepRecord.endTime).toMinutes()
+        sleepRecord.sleepDurationMinutes()
     }
     val workoutTypesSummary = exerciseResponse?.records?.let { summarizeWorkoutTypes(it) }
         ?: "Workout data not selected"
@@ -2433,6 +2614,9 @@ private suspend fun readHealthMetrics(
     } ?: "Workout data not selected"
     val hrvRecords = hrvResponse?.records.orEmpty()
     val hrvValues = hrvRecords.map { record -> record.heartRateVariabilityMillis }
+    val oxygenSaturationRecord = oxygenSaturationResponse?.records
+        .orEmpty()
+        .maxByOrNull { record -> record.time }
 
     return ImportedHealthMetrics(
         steps = aggregateResponse?.get(StepsRecord.COUNT_TOTAL),
@@ -2448,9 +2632,25 @@ private suspend fun readHealthMetrics(
         latestHrvMillis = hrvRecords.maxByOrNull { record -> record.time }?.heartRateVariabilityMillis,
         hrvAverageMillis = hrvValues.averageOrNull(),
         hrvSampleCount = hrvRecords.size.takeIf { count -> count > 0 },
+        oxygenSaturationPercent = oxygenSaturationRecord?.percentage?.value,
         workoutTypesSummary = workoutTypesSummary,
         workoutDetailsSummary = workoutDetailsSummary
     )
+}
+
+private fun SleepSessionRecord.sleepDurationMinutes(): Long {
+    val sleepStages = stages.filter { stage ->
+        stage.stage == SleepSessionRecord.STAGE_TYPE_SLEEPING ||
+            stage.stage == SleepSessionRecord.STAGE_TYPE_LIGHT ||
+            stage.stage == SleepSessionRecord.STAGE_TYPE_DEEP ||
+            stage.stage == SleepSessionRecord.STAGE_TYPE_REM
+    }
+
+    return if (sleepStages.isNotEmpty()) {
+        sleepStages.sumOf { stage -> Duration.between(stage.startTime, stage.endTime).toMinutes() }
+    } else {
+        Duration.between(startTime, endTime).toMinutes()
+    }
 }
 
 private fun formatHours(minutes: Long): String {
@@ -2488,6 +2688,8 @@ private fun buildTrendSummary(
         "no heart rate range"
     }
     val heartSamplesText = week.heartRateSampleCount?.let { "$it heart samples" } ?: "no heart samples"
+    val oxygenSaturationText = today.oxygenSaturationPercent?.let { "Latest SpO2 today is ${formatPercentage(it)}%." }
+        ?: "Latest SpO2 today was not found."
     val latestHeartRateText = today.latestHeartRate?.let { "Latest heart rate today is $it bpm." }
         ?: "Latest heart rate today was not found."
     val hrvAverageText = week.hrvAverageMillis?.let { "HRV ${formatOneDecimal(it)} ms 7-day average" }
@@ -2506,6 +2708,7 @@ private fun buildTrendSummary(
         "$exerciseText, $calorieText, $heartRateText, $restingHeartRateText, $heartRangeText, $heartSamplesText, $hrvAverageText. " +
         "$restingHeartRateChangeText " +
         "$hrvChangeText " +
+        "$oxygenSaturationText " +
         "$latestHeartRateText " +
         "Workout types this week: ${week.workoutTypesSummary}. " +
         "Today: $todayStepsText and $todaySleepText."
@@ -2648,6 +2851,18 @@ private fun formatOneDecimal(value: Double): String {
     return String.format(Locale.US, "%.1f", value)
 }
 
+private fun formatPercentage(value: Double): String {
+    return if (value % 1.0 == 0.0) {
+        value.roundToInt().toString()
+    } else {
+        formatOneDecimal(value)
+    }
+}
+
+private fun String.percentOrNoData(): String {
+    return if (isBlank()) "No data" else "$this%"
+}
+
 private fun List<Double>.averageOrNull(): Double? {
     return if (isEmpty()) null else average()
 }
@@ -2730,6 +2945,7 @@ private data class ImportedHealthMetrics(
     val latestHrvMillis: Double?,
     val hrvAverageMillis: Double?,
     val hrvSampleCount: Int?,
+    val oxygenSaturationPercent: Double?,
     val workoutTypesSummary: String,
     val workoutDetailsSummary: String
 )
@@ -2770,6 +2986,7 @@ private data class SelectedHealthData(
     val includeSteps: Boolean,
     val includeSleep: Boolean,
     val includeHeartRate: Boolean,
+    val includeBloodOxygen: Boolean,
     val includeActiveCalories: Boolean,
     val includeWorkouts: Boolean,
     val includeWeight: Boolean
@@ -2778,6 +2995,7 @@ private data class SelectedHealthData(
         return includeSteps ||
             includeSleep ||
             includeHeartRate ||
+            includeBloodOxygen ||
             includeActiveCalories ||
             includeWorkouts ||
             includeWeight
@@ -2792,6 +3010,7 @@ private data class SelectedHealthData(
                 add(HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class))
                 add(HealthPermission.getReadPermission(RestingHeartRateRecord::class))
             }
+            if (includeBloodOxygen) add(HealthPermission.getReadPermission(OxygenSaturationRecord::class))
             if (includeActiveCalories) add(HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class))
             if (includeWorkouts) add(HealthPermission.getReadPermission(ExerciseSessionRecord::class))
             if (includeWeight) add(HealthPermission.getReadPermission(WeightRecord::class))
@@ -2811,6 +3030,8 @@ private data class SelectedHealthData(
                 HealthPermission.getReadPermission(SleepSessionRecord::class) in grantedPermissions,
             includeHeartRate = includeHeartRate &&
                 heartRatePermissions.all { permission -> permission in grantedPermissions },
+            includeBloodOxygen = includeBloodOxygen &&
+                HealthPermission.getReadPermission(OxygenSaturationRecord::class) in grantedPermissions,
             includeActiveCalories = includeActiveCalories &&
                 HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class) in grantedPermissions,
             includeWorkouts = includeWorkouts &&
@@ -2825,6 +3046,7 @@ private data class SelectedHealthData(
             if (includeSteps) add("steps")
             if (includeSleep) add("sleep")
             if (includeHeartRate) add("heart rate, HRV, and resting heart rate")
+            if (includeBloodOxygen) add("blood oxygen")
             if (includeActiveCalories) add("active calories")
             if (includeWorkouts) add("workouts")
             if (includeWeight) add("weight")

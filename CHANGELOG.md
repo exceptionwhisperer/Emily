@@ -4,6 +4,17 @@
 
 Saved on August 4, 2026.
 
+### August 18, 2026 Progress Save
+
+- Added a Review refresh card with loading state so Health Connect imports show when Emily is retrieving data.
+- Moved fake-data testing controls into the hidden Debug tab so Home stays focused on Connect, Manage, and Import Today.
+- Added missing Health Connect permission declarations for HRV and blood oxygen.
+- Added Blood oxygen / SpO2 import, Review display, fake test data, and Coach payload support.
+- Changed sleep import to count actual sleep stages when available instead of full session time.
+- Fixed step imports so steps stay tied to today's calendar day instead of using the recent fallback window.
+- Kept the recent fallback only for sleep/recovery-style data that may sync across midnight.
+- Updated the Android Gradle plugin and Gradle wrapper versions used by the current Android Studio setup.
+
 ### Latest Milestone
 
 - Wired the Android Coach screen to call the private Emily backend when fake data test mode is unchecked.
